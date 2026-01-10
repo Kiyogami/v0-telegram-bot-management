@@ -97,16 +97,16 @@ export async function POST(request: Request) {
         throw new Error(data.detail || "Failed to send code")
       }
 
-      // Update bot status
       await supabase
         .from("bots")
         .update({
+          phone_code_hash: data.phone_code_hash,
           last_auth_attempt: new Date().toISOString(),
           auth_error: null,
         })
         .eq("id", botId)
 
-      console.log("[v0] Code sent successfully via Python backend")
+      console.log("[v0] Code sent successfully and phone_code_hash saved to database")
 
       return NextResponse.json({ success: true })
     } catch (fetchError: any) {

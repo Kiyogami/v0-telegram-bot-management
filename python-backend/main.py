@@ -41,11 +41,21 @@ class SendCodeRequest(BaseModel):
 
 class VerifyCodeRequest(BaseModel):
     bot_id: str
+    api_id: str
+    api_hash: str
+    phone_number: str
     phone_code: str
+    phone_code_hash: str
 
 class VerifyPasswordRequest(BaseModel):
     bot_id: str
     password: str
+
+class FetchGroupsRequest(BaseModel):
+    bot_id: str
+    api_id: str
+    api_hash: str
+    session_string: str
 
 class StartBotRequest(BaseModel):
     bot_id: str
@@ -155,24 +165,34 @@ async def verify_code(request: VerifyCodeRequest):
     try:
         logger.info(f"Verifying code for bot {request.bot_id}")
         
-        if request.bot_id not in active_clients:
-            raise HTTPException(status_code=400, detail="No active session found")
+        client = TelegramClient(
+            StringSession(),
+            int(request.api_id),
+            request.api_hash
+        )
         
-        client_data = active_clients[request.bot_id]
-        client = client_data['client']
+        await client.connect()
         
-        # Sign in with code
+        # Sign in with code using phone_code_hash from database
         try:
             await client.sign_in(
-                phone=client_data['phone'],
+                phone=request.phone_number,
                 code=request.phone_code,
-                phone_code_hash=client_data['phone_code_hash']
+                phone_code_hash=request.phone_code_hash
             )
             
             # Get session string
             session_string = client.session.save()
             
             logger.info(f"Code verified successfully for bot {request.bot_id}")
+            
+            # Store client temporarily for potential 2FA password verification
+            active_clients[request.bot_id] = {
+                'client': client,
+                'phone': request.phone_number,
+                'api_id': request.api_id,
+                'api_hash': request.api_hash
+            }
             
             # Disconnect temporary client
             await client.disconnect()
@@ -186,6 +206,15 @@ async def verify_code(request: VerifyCodeRequest):
             
         except errors.SessionPasswordNeededError:
             logger.info(f"2FA password required for bot {request.bot_id}")
+            
+            # Store client for password verification
+            active_clients[request.bot_id] = {
+                'client': client,
+                'phone': request.phone_number,
+                'api_id': request.api_id,
+                'api_hash': request.api_hash
+            }
+            
             return {
                 "success": False,
                 "requires_password": True,
@@ -227,6 +256,49 @@ async def verify_password(request: VerifyPasswordRequest):
         
     except Exception as e:
         logger.error(f"Error verifying password: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/telegram/groups/fetch")
+async def fetch_groups(request: FetchGroupsRequest):
+    """Fetch all groups/chats the bot is a member of"""
+    try:
+        logger.info(f"Fetching groups for bot {request.bot_id}")
+        
+        # Create client with saved session
+        client = TelegramClient(
+            StringSession(request.session_string),
+            int(request.api_id),
+            request.api_hash
+        )
+        
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            raise HTTPException(status_code=401, detail="Session expired")
+        
+        groups = []
+        async for dialog in client.iter_dialogs():
+            # Only include groups and channels, not private chats
+            if dialog.is_group or dialog.is_channel:
+                groups.append({
+                    "group_id": str(dialog.id),
+                    "group_name": dialog.name or "Unnamed Group",
+                    "is_channel": dialog.is_channel,
+                    "is_group": dialog.is_group,
+                    "participant_count": getattr(dialog.entity, 'participants_count', 0) if hasattr(dialog, 'entity') else 0
+                })
+        
+        await client.disconnect()
+        
+        logger.info(f"Found {len(groups)} groups for bot {request.bot_id}")
+        
+        return {
+            "success": True,
+            "groups": groups
+        }
+        
+    except Exception as e:
+        logger.error(f"Error fetching groups: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/telegram/bot/start")
@@ -324,6 +396,18 @@ async def get_bot_status(bot_id: str):
         "bot_id": bot_id,
         "is_running": is_running
     }
+
+@app.get("/api/debug/routes")
+async def list_routes():
+    """List all available API routes"""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'path') and hasattr(route, 'methods'):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods) if route.methods else []
+            })
+    return {"routes": routes}
 
 @app.get("/health")
 async def health_check():

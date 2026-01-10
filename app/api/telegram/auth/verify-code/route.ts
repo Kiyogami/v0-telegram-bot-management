@@ -35,7 +35,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bot not found" }, { status: 404 })
     }
 
-    console.log("[v0] Forwarding code verification to Python backend")
+    if (!bot.phone_code_hash) {
+      return NextResponse.json(
+        { error: "No verification code sent yet. Please request a code first." },
+        { status: 400 },
+      )
+    }
+
+    console.log("[v0] Forwarding code verification to Python backend with stored phone_code_hash")
 
     const response = await fetch(`${PYTHON_BACKEND_URL}/api/telegram/auth/verify-code`, {
       method: "POST",
@@ -44,7 +51,11 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         bot_id: botId,
+        api_id: bot.api_id,
+        api_hash: bot.api_hash,
+        phone_number: bot.phone_number,
         phone_code: code,
+        phone_code_hash: bot.phone_code_hash,
       }),
     })
 
@@ -67,6 +78,7 @@ export async function POST(request: Request) {
         .update({
           is_authorized: true,
           session_string: data.session_string,
+          phone_code_hash: null,
           auth_error: null,
         })
         .eq("id", botId)

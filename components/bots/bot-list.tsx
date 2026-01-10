@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BotIcon, Plus, LogOut, Play, Square, Trash2, Edit } from "lucide-react"
+import { BotIcon, Plus, LogOut, Play, Square, Trash2, Edit, Users } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BotDialog } from "./bot-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { AuthDialog } from "./auth-dialog"
+import { GroupsDialog } from "./groups-dialog"
 
 interface Bot {
   id: string
@@ -44,6 +45,7 @@ export function BotList({ userId }: BotListProps) {
   const [editingBot, setEditingBot] = useState<Bot | null>(null)
   const [deletingBotId, setDeletingBotId] = useState<string | null>(null)
   const [authorizingBot, setAuthorizingBot] = useState<Bot | null>(null)
+  const [managingGroupsBot, setManagingGroupsBot] = useState<Bot | null>(null)
   const [togglingBotId, setTogglingBotId] = useState<string | null>(null) // added loading state for toggle
   const router = useRouter()
   const supabase = createClient()
@@ -238,6 +240,14 @@ export function BotList({ userId }: BotListProps) {
                           </>
                         )}
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setManagingGroupsBot(bot)}
+                        title="Manage Groups"
+                      >
+                        <Users className="size-3" />
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => handleEdit(bot)}>
                         <Edit className="size-3" />
                       </Button>
@@ -261,6 +271,15 @@ export function BotList({ userId }: BotListProps) {
           open={!!authorizingBot}
           onOpenChange={(open) => !open && setAuthorizingBot(null)}
           onAuthComplete={handleAuthComplete}
+        />
+      )}
+
+      {managingGroupsBot && (
+        <GroupsDialog
+          botId={managingGroupsBot.id}
+          botName={managingGroupsBot.name}
+          open={!!managingGroupsBot}
+          onOpenChange={(open) => !open && setManagingGroupsBot(null)}
         />
       )}
 
