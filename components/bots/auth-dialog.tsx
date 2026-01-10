@@ -153,23 +153,23 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Authorize {bot.name}</DialogTitle>
-          <DialogDescription>Authorize your Telegram bot to start sending messages</DialogDescription>
+          <DialogTitle>Autoryzuj {bot.name}</DialogTitle>
+          <DialogDescription>Autoryzuj swojego bota Telegram aby rozpocząć wysyłanie wiadomości</DialogDescription>
         </DialogHeader>
 
         {step === "initial" && (
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground">
-              Click the button below to receive a verification code on <strong>{bot.phone_number}</strong>
+              Kliknij przycisk poniżej aby otrzymać kod weryfikacyjny na <strong>{bot.phone_number}</strong>
             </p>
             <Button onClick={handleSendCode} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Sending code...
+                  Wysyłanie kodu...
                 </>
               ) : (
-                "Send Verification Code"
+                "Wyślij kod weryfikacyjny"
               )}
             </Button>
           </div>
@@ -178,7 +178,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
         {step === "code" && (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="code">Verification Code</Label>
+              <Label htmlFor="code">Kod weryfikacyjny</Label>
               <Input
                 id="code"
                 placeholder="12345"
@@ -187,17 +187,17 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
                 onKeyDown={(e) => e.key === "Enter" && handleVerifyCode()}
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground">Enter the code sent to {bot.phone_number}</p>
+              <p className="text-xs text-muted-foreground">Wprowadź kod wysłany na {bot.phone_number}</p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button onClick={handleVerifyCode} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Verifying...
+                  Weryfikacja...
                 </>
               ) : (
-                "Verify Code"
+                "Zweryfikuj kod"
               )}
             </Button>
           </div>
@@ -206,27 +206,27 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
         {step === "password" && (
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="password">2FA Password</Label>
+              <Label htmlFor="password">Hasło 2FA</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Wprowadź swoje hasło"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleVerifyPassword()}
                 autoFocus
               />
-              <p className="text-xs text-muted-foreground">Your account has 2FA enabled. Please enter your password.</p>
+              <p className="text-xs text-muted-foreground">Twoje konto ma włączone 2FA. Wprowadź swoje hasło.</p>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button onClick={handleVerifyPassword} disabled={isLoading} className="w-full">
               {isLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Verifying...
+                  Weryfikacja...
                 </>
               ) : (
-                "Verify Password"
+                "Zweryfikuj hasło"
               )}
             </Button>
           </div>
@@ -236,8 +236,8 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <CheckCircle className="size-16 text-green-500" />
             <div className="text-center">
-              <h3 className="text-lg font-semibold">Authorization Successful!</h3>
-              <p className="text-sm text-muted-foreground mt-1">Your bot is now authorized and ready to use</p>
+              <h3 className="text-lg font-semibold">Autoryzacja pomyślna!</h3>
+              <p className="text-sm text-muted-foreground mt-1">Twój bot jest teraz autoryzowany i gotowy do użycia</p>
             </div>
           </div>
         )}
@@ -245,7 +245,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
         {step === "error" && (
           <div className="space-y-4 py-4">
             <div className="bg-destructive/10 text-destructive rounded-lg p-4 space-y-3">
-              <p className="text-sm font-semibold">{error || "An error occurred during authorization"}</p>
+              <p className="text-sm font-semibold">{error || "Wystąpił błąd podczas autoryzacji"}</p>
               {helpText && (
                 <div className="border-t border-destructive/20 pt-3 mt-3">
                   <p className="text-xs text-destructive/90 font-medium mb-2">Jak to naprawić:</p>
@@ -263,7 +263,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
               )}
             </div>
             <Button onClick={handleRetry} className="w-full">
-              Try Again
+              Spróbuj ponownie
             </Button>
           </div>
         )}
@@ -271,7 +271,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
         {step !== "success" && step !== "initial" && (
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              Anuluj
             </Button>
           </DialogFooter>
         )}

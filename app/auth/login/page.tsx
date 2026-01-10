@@ -47,8 +47,8 @@ export default function Page() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Telegram Bot Manager</CardTitle>
-              <CardDescription>Login to manage your Telegram bots</CardDescription>
+              <CardTitle className="text-2xl">Menedżer Botów Telegram</CardTitle>
+              <CardDescription>Zaloguj się aby zarządzać swoimi botami</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleLogin}>
@@ -65,7 +65,7 @@ export default function Page() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password">Hasło</Label>
                     <Input
                       id="password"
                       type="password"
@@ -76,13 +76,13 @@ export default function Page() {
                   </div>
                   {error && <p className="text-sm text-red-500">{error}</p>}
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Logging in..." : "Login"}
+                    {isLoading ? "Logowanie..." : "Zaloguj się"}
                   </Button>
                 </div>
                 <div className="mt-4 text-center text-sm">
-                  Don&apos;t have an account?{" "}
+                  Nie masz konta?{" "}
                   <Link href="/auth/sign-up" className="underline underline-offset-4">
-                    Sign up
+                    Zarejestruj się
                   </Link>
                 </div>
               </form>

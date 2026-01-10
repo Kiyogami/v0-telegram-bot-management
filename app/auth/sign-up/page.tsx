@@ -26,7 +26,7 @@ export default function Page() {
     setError(null)
 
     if (password !== repeatPassword) {
-      setError("Passwords do not match")
+      setError("Hasła nie pasują do siebie")
       setIsLoading(false)
       return
     }
@@ -42,7 +42,7 @@ export default function Page() {
       if (error) throw error
       router.push("/auth/sign-up-success")
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      setError(error instanceof Error ? error.message : "Wystąpił błąd")
     } finally {
       setIsLoading(false)
     }
@@ -54,8 +54,8 @@ export default function Page() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Sign up</CardTitle>
-              <CardDescription>Create a new account</CardDescription>
+              <CardTitle className="text-2xl">Rejestracja</CardTitle>
+              <CardDescription>Utwórz nowe konto</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSignUp}>
@@ -73,7 +73,7 @@ export default function Page() {
                   </div>
                   <div className="grid gap-2">
                     <div className="flex items-center">
-                      <Label htmlFor="password">Password</Label>
+                      <Label htmlFor="password">Hasło</Label>
                     </div>
                     <Input
                       id="password"
@@ -85,7 +85,7 @@ export default function Page() {
                   </div>
                   <div className="grid gap-2">
                     <div className="flex items-center">
-                      <Label htmlFor="repeat-password">Repeat Password</Label>
+                      <Label htmlFor="repeat-password">Powtórz hasło</Label>
                     </div>
                     <Input
                       id="repeat-password"
@@ -97,13 +97,13 @@ export default function Page() {
                   </div>
                   {error && <p className="text-sm text-red-500">{error}</p>}
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Creating an account..." : "Sign up"}
+                    {isLoading ? "Tworzenie konta..." : "Zarejestruj się"}
                   </Button>
                 </div>
                 <div className="mt-4 text-center text-sm">
-                  Already have an account?{" "}
+                  Masz już konto?{" "}
                   <Link href="/auth/login" className="underline underline-offset-4">
-                    Login
+                    Zaloguj się
                   </Link>
                 </div>
               </form>

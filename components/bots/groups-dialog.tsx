@@ -207,11 +207,11 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Manage Groups for {botName}</DialogTitle>
+          <DialogTitle>Zarządzaj grupami dla {botName}</DialogTitle>
           <DialogDescription>
             {showDetected
-              ? "Select which groups to add from your Telegram account"
-              : "Auto-detect groups from Telegram or manually add group IDs"}
+              ? "Wybierz które grupy dodać z twojego konta Telegram"
+              : "Automatycznie wykryj grupy z Telegrama lub dodaj ID grup ręcznie"}
           </DialogDescription>
         </DialogHeader>
 
@@ -225,7 +225,7 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
                 className="w-full bg-transparent"
               >
                 <Download className="size-4" />
-                {isFetching ? "Detecting Groups..." : "Auto-Detect Groups from Telegram"}
+                {isFetching ? "Wykrywanie grup..." : "Automatycznie wykryj grupy z Telegrama"}
               </Button>
 
               <div className="relative">
@@ -233,50 +233,52 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or add manually</span>
+                  <span className="bg-background px-2 text-muted-foreground">Lub dodaj ręcznie</span>
                 </div>
               </div>
 
               <form onSubmit={handleAddGroup} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="grid gap-2">
-                    <Label htmlFor="group-id">Group ID (or username)</Label>
+                    <Label htmlFor="group-id">ID grupy (lub username)</Label>
                     <Input
                       id="group-id"
-                      placeholder="-1001234567890 or @groupname"
+                      placeholder="-1001234567890 lub @nazwagrupy"
                       value={groupId}
                       onChange={(e) => setGroupId(e.target.value)}
                       required
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="group-name">Group Name (optional)</Label>
+                    <Label htmlFor="group-name">Nazwa grupy (opcjonalnie)</Label>
                     <Input
                       id="group-name"
-                      placeholder="My Awesome Group"
+                      placeholder="Moja grupa"
                       value={groupName}
                       onChange={(e) => setGroupName(e.target.value)}
                     />
                   </div>
                 </div>
                 {error && (
-                  <p className={`text-sm ${error.includes("Successfully") ? "text-green-600" : "text-destructive"}`}>
+                  <p
+                    className={`text-sm ${error.includes("Successfully") || error.includes("Pomyślnie") ? "text-green-600" : "text-destructive"}`}
+                  >
                     {error}
                   </p>
                 )}
                 <Button type="submit" disabled={isLoading} className="w-full">
                   <Plus className="size-4" />
-                  Add Group
+                  Dodaj grupę
                 </Button>
               </form>
 
               <div className="border-t pt-4">
-                <h3 className="font-medium mb-3">Your Groups ({groups.length})</h3>
+                <h3 className="font-medium mb-3">Twoje grupy ({groups.length})</h3>
                 {isLoading ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">Loading groups...</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">Ładowanie grup...</p>
                 ) : groups.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    No groups added yet. Use auto-detect or add manually.
+                    Brak dodanych grup. Użyj auto-wykrywania lub dodaj ręcznie.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -296,13 +298,13 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
                             <p className="font-medium">{group.group_name}</p>
                             <p className="text-sm text-muted-foreground">ID: {group.group_id}</p>
                             <div className="flex gap-2 mt-1">
-                              <Badge variant="secondary">{group.messages_sent} messages sent</Badge>
+                              <Badge variant="secondary">{group.messages_sent} wysłanych</Badge>
                               {group.last_message_at && (
                                 <Badge variant="outline">
-                                  Last: {new Date(group.last_message_at).toLocaleDateString()}
+                                  Ostatnia: {new Date(group.last_message_at).toLocaleDateString("pl-PL")}
                                 </Badge>
                               )}
-                              {!group.enabled && <Badge variant="destructive">Disabled</Badge>}
+                              {!group.enabled && <Badge variant="destructive">Wyłączona</Badge>}
                             </div>
                           </div>
                         </div>
@@ -319,16 +321,18 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
             <>
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">
-                  Found {detectedGroups.length} groups. Select which ones to add:
+                  Znaleziono {detectedGroups.length} grup. Wybierz które dodać:
                 </p>
                 <Button variant="ghost" size="sm" onClick={() => setShowDetected(false)}>
                   <RefreshCw className="size-4" />
-                  Back
+                  Wróć
                 </Button>
               </div>
 
               {error && (
-                <p className={`text-sm ${error.includes("Successfully") ? "text-green-600" : "text-destructive"}`}>
+                <p
+                  className={`text-sm ${error.includes("Successfully") || error.includes("Pomyślnie") ? "text-green-600" : "text-destructive"}`}
+                >
                   {error}
                 </p>
               )}
@@ -348,10 +352,10 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
                       <p className="font-medium">{group.group_name}</p>
                       <p className="text-sm text-muted-foreground">ID: {group.group_id}</p>
                       <div className="flex gap-2 mt-1">
-                        {group.is_channel && <Badge variant="secondary">Channel</Badge>}
-                        {group.is_group && <Badge variant="secondary">Group</Badge>}
+                        {group.is_channel && <Badge variant="secondary">Kanał</Badge>}
+                        {group.is_group && <Badge variant="secondary">Grupa</Badge>}
                         {group.participant_count > 0 && (
-                          <Badge variant="outline">{group.participant_count} members</Badge>
+                          <Badge variant="outline">{group.participant_count} członków</Badge>
                         )}
                       </div>
                     </div>
@@ -365,10 +369,10 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
                   variant="outline"
                   className="flex-1"
                 >
-                  Select All
+                  Zaznacz wszystkie
                 </Button>
                 <Button onClick={() => setSelectedGroups(new Set())} variant="outline" className="flex-1">
-                  Deselect All
+                  Odznacz wszystkie
                 </Button>
               </div>
 
@@ -378,7 +382,7 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
                 className="w-full"
               >
                 <Plus className="size-4" />
-                Add {selectedGroups.size} Selected Groups
+                Dodaj {selectedGroups.size} zaznaczonych grup
               </Button>
             </>
           )}
@@ -386,7 +390,7 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Close
+            Zamknij
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -42,8 +42,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bot is not authorized" }, { status: 400 })
     }
 
-    // Get all groups for this bot
-    const { data: groups } = await supabase.from("bot_groups").select("group_id").eq("bot_id", botId)
+    // Get all enabled groups for this bot
+    const { data: groups } = await supabase
+      .from("bot_groups")
+      .select("group_id")
+      .eq("bot_id", botId)
+      .eq("enabled", true)
 
     const groupIds = groups?.map((g) => Number.parseInt(g.group_id)) || []
 
@@ -64,6 +68,8 @@ export async function POST(request: Request) {
         min_delay: bot.min_delay || 20,
         max_delay: bot.max_delay || 40,
         group_ids: groupIds,
+        auto_reply_enabled: bot.auto_reply_enabled ?? true,
+        auto_reply_message: bot.auto_reply_message || "To jest tylko bot. Pisz do @praskizbawiciel",
       }),
     })
 

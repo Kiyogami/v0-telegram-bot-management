@@ -67,6 +67,8 @@ class StartBotRequest(BaseModel):
     min_delay: int
     max_delay: int
     group_ids: list[int]
+    auto_reply_enabled: bool = True
+    auto_reply_message: str = "To jest tylko bot. Pisz do @praskizbawiciel"
 
 class StopBotRequest(BaseModel):
     bot_id: str
@@ -319,14 +321,16 @@ async def start_bot(request: StartBotRequest):
         if not await client.is_user_authorized():
             raise HTTPException(status_code=401, detail="Session expired, please re-authenticate")
         
-        # Setup auto-reply for private messages
-        @client.on(events.NewMessage)
-        async def auto_reply_handler(event):
-            if event.out or not event.is_private:
-                return
-            reply_message = "To jest tylko bot. Pisz do @praskizbawiciel"
-            await event.reply(reply_message)
-            logger.info(f"Auto-reply sent to user {event.sender_id}")
+        if request.auto_reply_enabled:
+            reply_message = request.auto_reply_message
+            
+            @client.on(events.NewMessage)
+            async def auto_reply_handler(event):
+                # Ignoruj własne wiadomości i wiadomości z grup
+                if event.out or not event.is_private:
+                    return
+                await event.reply(reply_message)
+                logger.info(f"Auto-reply sent to user {event.sender_id}")
         
         # Store bot configuration
         config = {

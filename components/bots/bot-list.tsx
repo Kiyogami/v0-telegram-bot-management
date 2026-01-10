@@ -137,11 +137,11 @@ export function BotList({ userId }: BotListProps) {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-2 font-semibold text-lg">
             <BotIcon className="size-6" />
-            <span>Bot Manager</span>
+            <span>Menedżer Botów</span>
           </div>
           <Button variant="ghost" onClick={handleLogout}>
             <LogOut className="size-4" />
-            Logout
+            Wyloguj
           </Button>
         </div>
       </header>
@@ -149,28 +149,28 @@ export function BotList({ userId }: BotListProps) {
       <main className="flex-1 container mx-auto p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Your Telegram Bots</h1>
-            <p className="text-muted-foreground mt-1">Manage and monitor your bots in one place</p>
+            <h1 className="text-3xl font-bold">Twoje Boty Telegram</h1>
+            <p className="text-muted-foreground mt-1">Zarządzaj i monitoruj swoje boty w jednym miejscu</p>
           </div>
           <Button onClick={() => setIsDialogOpen(true)}>
             <Plus className="size-4" />
-            Add New Bot
+            Dodaj nowego bota
           </Button>
         </div>
 
         {isLoading ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading bots...</p>
+            <p className="text-muted-foreground">Ładowanie botów...</p>
           </div>
         ) : bots.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <BotIcon className="size-12 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No bots yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first bot to get started</p>
+              <h3 className="text-xl font-semibold mb-2">Brak botów</h3>
+              <p className="text-muted-foreground mb-4">Utwórz swojego pierwszego bota aby rozpocząć</p>
               <Button onClick={() => setIsDialogOpen(true)}>
                 <Plus className="size-4" />
-                Add Your First Bot
+                Dodaj pierwszego bota
               </Button>
             </CardContent>
           </Card>
@@ -200,21 +200,21 @@ export function BotList({ userId }: BotListProps) {
                   <div className="space-y-3">
                     {!bot.is_authorized && (
                       <div className="text-sm bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 rounded p-2">
-                        Not authorized - Click Start to authorize
+                        Nieautoryzowany - Kliknij Start aby autoryzować
                       </div>
                     )}
                     {bot.auth_error && (
                       <div className="text-sm bg-destructive/10 text-destructive rounded p-2">{bot.auth_error}</div>
                     )}
                     <div className="text-sm">
-                      <span className="text-muted-foreground">Delay: </span>
+                      <span className="text-muted-foreground">Opóźnienie: </span>
                       <span className="font-medium">
                         {bot.min_delay}-{bot.max_delay}s
                       </span>
                     </div>
                     {bot.message_content && (
                       <div className="text-sm">
-                        <span className="text-muted-foreground">Message: </span>
+                        <span className="text-muted-foreground">Wiadomość: </span>
                         <p className="text-xs bg-muted rounded p-2 mt-1 line-clamp-2">{bot.message_content}</p>
                       </div>
                     )}
@@ -227,7 +227,7 @@ export function BotList({ userId }: BotListProps) {
                         className="flex-1"
                       >
                         {togglingBotId === bot.id ? (
-                          "Loading..."
+                          "Ładowanie..."
                         ) : bot.status === "running" ? (
                           <>
                             <Square className="size-3" />
@@ -244,7 +244,7 @@ export function BotList({ userId }: BotListProps) {
                         size="sm"
                         variant="outline"
                         onClick={() => setManagingGroupsBot(bot)}
-                        title="Manage Groups"
+                        title="Zarządzaj grupami"
                       >
                         <Users className="size-3" />
                       </Button>
@@ -286,15 +286,15 @@ export function BotList({ userId }: BotListProps) {
       <AlertDialog open={!!deletingBotId} onOpenChange={() => setDeletingBotId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Bot</AlertDialogTitle>
+            <AlertDialogTitle>Usuń bota</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this bot? This action cannot be undone and all associated data will be
-              permanently removed.
+              Czy na pewno chcesz usunąć tego bota? Ta akcja jest nieodwracalna i wszystkie powiązane dane zostaną
+              trwale usunięte.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteBot}>Delete</AlertDialogAction>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBot}>Usuń</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

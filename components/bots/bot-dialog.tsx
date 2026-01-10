@@ -26,6 +26,8 @@ interface Bot {
   message_content: string | null
   min_delay: number
   max_delay: number
+  auto_reply_message: string
+  auto_reply_enabled: boolean
 }
 
 interface BotDialogProps {
@@ -41,6 +43,8 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
   const [apiHash, setApiHash] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [message, setMessage] = useState("")
+  const [autoReplyMessage, setAutoReplyMessage] = useState("To jest tylko bot. Pisz do @praskizbawiciel")
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(true)
   const [minDelay, setMinDelay] = useState("20")
   const [maxDelay, setMaxDelay] = useState("40")
   const [error, setError] = useState<string | null>(null)
@@ -54,6 +58,8 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
       setApiHash(bot.api_hash)
       setPhoneNumber(bot.phone_number)
       setMessage(bot.message_content || "")
+      setAutoReplyMessage(bot.auto_reply_message || "To jest tylko bot. Pisz do @praskizbawiciel")
+      setAutoReplyEnabled(bot.auto_reply_enabled ?? true)
       setMinDelay(bot.min_delay.toString())
       setMaxDelay(bot.max_delay.toString())
     } else {
@@ -62,6 +68,8 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
       setApiHash("")
       setPhoneNumber("")
       setMessage("")
+      setAutoReplyMessage("To jest tylko bot. Pisz do @praskizbawiciel")
+      setAutoReplyEnabled(true)
       setMinDelay("20")
       setMaxDelay("40")
     }
@@ -85,6 +93,8 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
         api_hash: apiHash,
         phone_number: phoneNumber,
         message_content: message || null,
+        auto_reply_message: autoReplyMessage,
+        auto_reply_enabled: autoReplyEnabled,
         min_delay: Number.parseInt(minDelay),
         max_delay: Number.parseInt(maxDelay),
         user_id: user.id,
@@ -111,16 +121,16 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{bot ? "Edit Bot" : "Add New Bot"}</DialogTitle>
+          <DialogTitle>{bot ? "Edytuj bota" : "Dodaj nowego bota"}</DialogTitle>
           <DialogDescription>
-            {bot ? "Update your bot configuration" : "Configure your new Telegram bot"}
+            {bot ? "Zaktualizuj konfigurację bota" : "Skonfiguruj swojego nowego bota Telegram"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Bot Name</Label>
-              <Input id="name" placeholder="My Bot" value={name} onChange={(e) => setName(e.target.value)} required />
+              <Label htmlFor="name">Nazwa bota</Label>
+              <Input id="name" placeholder="Mój Bot" value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="api-id">API ID</Label>
@@ -143,7 +153,7 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="phone">Phone Number</Label>
+              <Label htmlFor="phone">Numer telefonu</Label>
               <Input
                 id="phone"
                 placeholder="+1234567890"
@@ -153,18 +163,45 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="message">Message Template</Label>
+              <Label htmlFor="message">Szablon wiadomości</Label>
               <Textarea
                 id="message"
-                placeholder="Enter the message to send to groups..."
+                placeholder="Wprowadź wiadomość do wysłania do grup..."
                 rows={4}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
               />
             </div>
+            <div className="grid gap-2 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="auto-reply-enabled">Automatyczna odpowiedź na wiadomości prywatne</Label>
+                <input
+                  type="checkbox"
+                  id="auto-reply-enabled"
+                  checked={autoReplyEnabled}
+                  onChange={(e) => setAutoReplyEnabled(e.target.checked)}
+                  className="h-4 w-4"
+                />
+              </div>
+              {autoReplyEnabled && (
+                <div className="grid gap-2">
+                  <Label htmlFor="auto-reply-message">Treść automatycznej odpowiedzi</Label>
+                  <Textarea
+                    id="auto-reply-message"
+                    placeholder="Wiadomość która zostanie wysłana w odpowiedzi..."
+                    rows={3}
+                    value={autoReplyMessage}
+                    onChange={(e) => setAutoReplyMessage(e.target.value)}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Ta wiadomość zostanie automatycznie wysłana w odpowiedzi na każdą prywatną wiadomość
+                  </p>
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="min-delay">Min Delay (seconds)</Label>
+                <Label htmlFor="min-delay">Min. opóźnienie (sekundy)</Label>
                 <Input
                   id="min-delay"
                   type="number"
@@ -175,7 +212,7 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="max-delay">Max Delay (seconds)</Label>
+                <Label htmlFor="max-delay">Maks. opóźnienie (sekundy)</Label>
                 <Input
                   id="max-delay"
                   type="number"
@@ -190,10 +227,10 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              Anuluj
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Saving..." : bot ? "Update Bot" : "Create Bot"}
+              {isLoading ? "Zapisywanie..." : bot ? "Zaktualizuj bota" : "Utwórz bota"}
             </Button>
           </DialogFooter>
         </form>
