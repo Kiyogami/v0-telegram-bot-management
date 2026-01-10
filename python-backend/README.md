@@ -5,24 +5,24 @@ This backend handles Telegram bot authentication and message sending using Telet
 ## Local Development
 
 1. Install dependencies:
-```bash
+\`\`\`bash
 pip install -r requirements.txt
-```
+\`\`\`
 
 2. Run the server:
-```bash
+\`\`\`bash
 python main.py
-```
+\`\`\`
 
 The API will be available at `http://localhost:8000`
 
 ## Docker Deployment
 
 Build and run with Docker:
-```bash
+\`\`\`bash
 docker build -t telegram-bot-backend .
 docker run -p 8000:8000 telegram-bot-backend
-```
+\`\`\`
 
 ## API Endpoints
 

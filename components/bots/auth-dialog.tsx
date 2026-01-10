@@ -36,11 +36,13 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
   const [code, setCode] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [helpText, setHelpText] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSendCode = async () => {
     setIsLoading(true)
     setError(null)
+    setHelpText(null)
 
     try {
       const response = await fetch("/api/telegram/auth/send-code", {
@@ -52,6 +54,9 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
       const data = await response.json()
 
       if (!response.ok) {
+        if (data.helpText) {
+          setHelpText(data.helpText)
+        }
         throw new Error(data.error || "Failed to send code")
       }
 
@@ -141,6 +146,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
     setCode("")
     setPassword("")
     setError(null)
+    setHelpText(null)
   }
 
   return (
@@ -238,8 +244,23 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
 
         {step === "error" && (
           <div className="space-y-4 py-4">
-            <div className="bg-destructive/10 text-destructive rounded p-4 text-sm">
-              {error || "An error occurred during authorization"}
+            <div className="bg-destructive/10 text-destructive rounded-lg p-4 space-y-3">
+              <p className="text-sm font-semibold">{error || "An error occurred during authorization"}</p>
+              {helpText && (
+                <div className="border-t border-destructive/20 pt-3 mt-3">
+                  <p className="text-xs text-destructive/90 font-medium mb-2">Jak to naprawić:</p>
+                  <p className="text-xs text-destructive/80">{helpText}</p>
+                  <div className="mt-3 bg-background/50 rounded p-2 text-xs space-y-1">
+                    <p className="font-medium">Kroki do uruchomienia Python backendu:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                      <li>Pobierz projekt z v0 (Download ZIP lub GitHub)</li>
+                      <li>Przejdź do folderu python-backend</li>
+                      <li>Wdróż na Railway.app lub Render.com</li>
+                      <li>Skopiuj URL backendu i dodaj jako PYTHON_BACKEND_URL</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
             </div>
             <Button onClick={handleRetry} className="w-full">
               Try Again

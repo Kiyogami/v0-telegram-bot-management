@@ -88,7 +88,10 @@ docker run -p 8000:8000 telegram-bot-backend
 
 - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous key
-- `PYTHON_BACKEND_URL` - URL of the Python backend (default: http://localhost:8000)
+- `PYTHON_BACKEND_URL` - **PUBLIC** URL of the Python backend (e.g., https://your-backend.up.railway.app)
+  - **IMPORTANT**: Use the public Railway URL (ending in .up.railway.app)
+  - **DO NOT** use internal Railway URLs (ending in .railway.internal)
+  - For local development: http://localhost:8000
 
 ## Production Deployment
 
@@ -99,9 +102,16 @@ Deploy to Vercel:
 vercel deploy
 ```
 
-### Python Backend
+### Python Backend on Railway
 
-Deploy to any Python hosting service (Railway, Render, Fly.io, etc.) and update the `PYTHON_BACKEND_URL` environment variable in your Vercel project.
+1. Create a new project on Railway.app
+2. Deploy the `python-backend` folder
+3. Railway will auto-detect the Dockerfile
+4. Go to Settings → Networking → Generate Domain
+5. Copy the PUBLIC domain (e.g., `https://python-backend-production-xxxx.up.railway.app`)
+6. Add this URL as `PYTHON_BACKEND_URL` in your Next.js deployment (Vercel)
+
+**Common Mistake**: Using `.railway.internal` URLs - these only work between Railway services, not from external apps like Vercel.
 
 ## How It Works
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { BotList } from "@/components/bots/bot-list"
+import { BackendStatus } from "@/components/bots/backend-status"
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -12,7 +13,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex min-h-svh flex-col bg-background">
-      <BotList userId={data.user.id} />
+      <div className="container mx-auto py-8 space-y-6">
+        <BackendStatus />
+        <BotList userId={data.user.id} />
+      </div>
     </div>
   )
 }
