@@ -101,6 +101,7 @@ async def send_code(request: SendCodeRequest):
     """Send verification code to phone number"""
     try:
         print(f"[v0] Sending code to {request.phone_number} for bot {request.bot_id}")
+        print(f"[v0] API ID: {request.api_id}, API Hash length: {len(request.api_hash)}")
         
         # Create client with empty StringSession
         client = TelegramClient(
@@ -109,10 +110,14 @@ async def send_code(request: SendCodeRequest):
             request.api_hash
         )
         
+        print(f"[v0] Connecting to Telegram...")
         await client.connect()
+        print(f"[v0] Connected successfully")
         
         # Send code
+        print(f"[v0] Requesting code...")
         result = await client.send_code_request(request.phone_number)
+        print(f"[v0] Code request sent")
         
         # Store client temporarily for verification
         active_clients[request.bot_id] = {
@@ -133,6 +138,9 @@ async def send_code(request: SendCodeRequest):
         
     except Exception as e:
         print(f"[v0] Error sending code: {str(e)}")
+        print(f"[v0] Error type: {type(e).__name__}")
+        import traceback
+        print(f"[v0] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/telegram/auth/verify-code")
