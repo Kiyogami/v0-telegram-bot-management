@@ -76,6 +76,18 @@ export async function POST(request: Request) {
     const data = await response.json()
 
     if (!response.ok) {
+      if (response.status === 400 && data.detail?.includes("Session expired")) {
+        await supabase
+          .from("bots")
+          .update({
+            status: "stopped",
+            is_authorized: false,
+            auth_error: "Sesja wygasła - wymaga ponownej autoryzacji",
+          })
+          .eq("id", botId)
+
+        return NextResponse.json({ error: "Session expired, please re-authenticate" }, { status: 400 })
+      }
       throw new Error(data.detail || "Failed to start bot")
     }
 

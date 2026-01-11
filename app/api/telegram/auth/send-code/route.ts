@@ -107,8 +107,15 @@ export async function POST(request: Request) {
         .eq("id", botId)
 
       console.log("[v0] Code sent successfully and phone_code_hash saved to database")
+      console.log("[v0] Code type:", data.code_type)
+      console.log("[v0] Message:", data.message)
 
-      return NextResponse.json({ success: true })
+      // Return full information from Python backend
+      return NextResponse.json({
+        success: true,
+        code_type: data.code_type,
+        message: data.message,
+      })
     } catch (fetchError: any) {
       clearTimeout(timeoutId)
 

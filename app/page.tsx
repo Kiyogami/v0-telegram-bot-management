@@ -9,14 +9,14 @@ export default function Home() {
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-2 font-semibold text-lg">
             <BotIcon className="size-6" />
-            <span>Telegram Bot Manager</span>
+            <span>Menadżer Botów Telegram</span>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="ghost" asChild>
-              <Link href="/auth/login">Login</Link>
+              <Link href="/auth/login">Logowanie</Link>
             </Button>
             <Button asChild>
-              <Link href="/auth/sign-up">Sign Up</Link>
+              <Link href="/auth/sign-up">Rejestracja</Link>
             </Button>
           </div>
         </div>
@@ -25,17 +25,19 @@ export default function Home() {
       <main className="flex-1">
         <section className="container mx-auto px-4 py-24 text-center">
           <div className="mx-auto max-w-3xl space-y-6">
-            <h1 className="text-5xl font-bold tracking-tight text-balance">Manage Multiple Telegram Bots with Ease</h1>
+            <h1 className="text-5xl font-bold tracking-tight text-balance">
+              Zarządzaj wieloma botami Telegram z łatwością
+            </h1>
             <p className="text-xl text-muted-foreground text-balance">
-              Create, configure, and run multiple Telegram bots 24/7 from one powerful dashboard. Send automated
-              messages to groups with smart delays and tracking.
+              Twórz, konfiguruj i uruchamiaj wiele botów Telegram 24/7 z jednego potężnego panelu. Wysyłaj
+              zautomatyzowane wiadomości do grup z inteligentnymi opóźnieniami i śledzeniem.
             </p>
             <div className="flex gap-4 justify-center pt-4">
               <Button size="lg" asChild>
-                <Link href="/auth/sign-up">Get Started</Link>
+                <Link href="/auth/sign-up">Rozpocznij</Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link href="/auth/login">Dashboard</Link>
+                <Link href="/auth/login">Panel</Link>
               </Button>
             </div>
           </div>
@@ -48,29 +50,30 @@ export default function Home() {
                 <div className="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Users className="size-6" />
                 </div>
-                <h3 className="text-xl font-semibold">Multiple Bots</h3>
+                <h3 className="text-xl font-semibold">Wiele botów</h3>
                 <p className="text-muted-foreground">
-                  Manage dozens of bots from a single dashboard. Each bot can have its own configuration and message
-                  templates.
+                  Zarządzaj dziesiątkami botów z jednego panelu. Każdy bot może mieć własną konfigurację i szablony
+                  wiadomości.
                 </p>
               </div>
               <div className="flex flex-col items-center text-center space-y-3">
                 <div className="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Zap className="size-6" />
                 </div>
-                <h3 className="text-xl font-semibold">24/7 Operation</h3>
+                <h3 className="text-xl font-semibold">Działanie 24/7</h3>
                 <p className="text-muted-foreground">
-                  Your bots run continuously in the cloud. Set custom delays between messages to avoid spam detection.
+                  Twoje boty działają nieprzerwanie w chmurze. Ustaw niestandardowe opóźnienia między wiadomościami, aby
+                  uniknąć wykrycia spamu.
                 </p>
               </div>
               <div className="flex flex-col items-center text-center space-y-3">
                 <div className="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <Shield className="size-6" />
                 </div>
-                <h3 className="text-xl font-semibold">Secure & Private</h3>
+                <h3 className="text-xl font-semibold">Bezpieczne i prywatne</h3>
                 <p className="text-muted-foreground">
-                  Your bot credentials are encrypted and stored securely. Only you have access to your bots and their
-                  data.
+                  Twoje dane logowania botów są szyfrowane i bezpiecznie przechowywane. Tylko Ty masz dostęp do swoich
+                  botów i ich danych.
                 </p>
               </div>
             </div>
@@ -80,7 +83,7 @@ export default function Home() {
 
       <footer className="border-t py-8">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>Telegram Bot Manager - Built with Next.js and Supabase</p>
+          <p>Menadżer Botów Telegram - Zbudowane na Next.js i Supabase</p>
         </div>
       </footer>
     </div>

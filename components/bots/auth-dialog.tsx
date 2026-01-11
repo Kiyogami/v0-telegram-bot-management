@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, CheckCircle, Shield, Key, Send, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle, Shield, Key, Send, AlertCircle, Smartphone, MessageSquare } from "lucide-react"
 
 interface Bot {
   id: string
@@ -37,6 +37,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [helpText, setHelpText] = useState<string | null>(null)
+  const [codeType, setCodeType] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSendCode = async () => {
@@ -45,6 +46,8 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
     setHelpText(null)
 
     try {
+      console.log("[v0] Sending code for bot:", bot.id)
+
       const response = await fetch("/api/telegram/auth/send-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,6 +56,8 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
 
       const data = await response.json()
 
+      console.log("[v0] Send code response:", data)
+
       if (!response.ok) {
         if (data.helpText) {
           setHelpText(data.helpText)
@@ -60,8 +65,17 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
         throw new Error(data.error || "Failed to send code")
       }
 
+      if (data.message) {
+        setHelpText(data.message)
+      }
+      if (data.code_type) {
+        setCodeType(data.code_type)
+        console.log("[v0] Code type:", data.code_type)
+      }
+
       setStep("code")
     } catch (err) {
+      console.error("[v0] Send code error:", err)
       setError(err instanceof Error ? err.message : "An error occurred")
       setStep("error")
     } finally {
@@ -147,6 +161,16 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
     setPassword("")
     setError(null)
     setHelpText(null)
+    setCodeType(null)
+  }
+
+  const getCodeTypeIcon = () => {
+    if (codeType === "SentCodeTypeApp") {
+      return <MessageSquare className="size-4 text-primary" />
+    } else if (codeType === "SentCodeTypeSms") {
+      return <Smartphone className="size-4 text-primary" />
+    }
+    return <Send className="size-4 text-primary" />
   }
 
   return (
@@ -194,6 +218,27 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
 
         {step === "code" && (
           <div className="space-y-6 py-4">
+            {helpText && (
+              <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 animate-fade-in">
+                <div className="flex items-start gap-3">
+                  {getCodeTypeIcon()}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground mb-1">{helpText}</p>
+                    {codeType === "SentCodeTypeApp" && (
+                      <p className="text-xs text-muted-foreground">
+                        Otwórz aplikację Telegram na swoim telefonie i sprawdź wiadomości od Telegram
+                      </p>
+                    )}
+                    {codeType === "SentCodeTypeSms" && (
+                      <p className="text-xs text-muted-foreground">
+                        Sprawdź wiadomości SMS na numerze {bot.phone_number}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="code" className="text-foreground">
                 Kod weryfikacyjny
@@ -207,7 +252,13 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
                 autoFocus
                 className="h-12 text-center text-2xl font-mono tracking-widest bg-background/50 border-border/50 focus:border-primary/50"
               />
-              <p className="text-xs text-muted-foreground text-center">Wprowadź kod wysłany na {bot.phone_number}</p>
+              <p className="text-xs text-muted-foreground text-center">
+                {codeType === "SentCodeTypeApp"
+                  ? "Kod został wysłany przez aplikację Telegram"
+                  : codeType === "SentCodeTypeSms"
+                    ? "Kod został wysłany SMS-em"
+                    : "Wprowadź otrzymany kod weryfikacyjny"}
+              </p>
             </div>
             {error && (
               <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">

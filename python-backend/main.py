@@ -73,6 +73,14 @@ class StartBotRequest(BaseModel):
 class StopBotRequest(BaseModel):
     bot_id: str
 
+class TestMessageRequest(BaseModel):
+    api_id: str
+    api_hash: str
+    phone_number: str
+    session_string: str
+    group_id: str
+    message: str
+
 # Helper functions
 async def send_messages_loop(bot_id: str, client: TelegramClient, config: dict):
     """Main loop for sending messages to groups"""
@@ -118,10 +126,20 @@ async def send_messages_loop(bot_id: str, client: TelegramClient, config: dict):
 async def send_code(request: SendCodeRequest):
     """Send verification code to phone number"""
     try:
-        logger.info(f"Sending code to {request.phone_number} for bot {request.bot_id}")
-        logger.info(f"API ID: {request.api_id}, API Hash length: {len(request.api_hash)}")
+        logger.info(f"=== SEND CODE START ===")
+        logger.info(f"Bot ID: {request.bot_id}")
+        logger.info(f"Phone: {request.phone_number}")
+        logger.info(f"API ID: {request.api_id}")
+        logger.info(f"API Hash length: {len(request.api_hash)}")
+        
+        if not request.api_id or not request.api_hash:
+            raise HTTPException(status_code=400, detail="API ID and API Hash are required")
+        
+        if len(request.api_hash) < 32:
+            raise HTTPException(status_code=400, detail="Invalid API Hash format")
         
         # Create client with empty StringSession
+        logger.info("Creating Telegram client...")
         client = TelegramClient(
             StringSession(),
             int(request.api_id),
@@ -130,12 +148,27 @@ async def send_code(request: SendCodeRequest):
         
         logger.info("Connecting to Telegram...")
         await client.connect()
-        logger.info("Connected successfully")
+        
+        if not await client.is_connected():
+            raise HTTPException(status_code=500, detail="Failed to connect to Telegram")
+        
+        logger.info("Connected successfully!")
         
         # Send code
-        logger.info("Requesting code...")
-        result = await client.send_code_request(request.phone_number)
-        logger.info("Code request sent")
+        logger.info(f"Requesting code for phone: {request.phone_number} (via Telegram app)")
+        result = await client.send_code_request(
+            request.phone_number,
+            force_sms=False  # Wymuś wysyłanie przez aplikację zamiast SMS
+        )
+        
+        code_type = "unknown"
+        if hasattr(result, 'type'):
+            if hasattr(result.type, '__class__'):
+                code_type = result.type.__class__.__name__
+                logger.info(f"Code type: {code_type}")
+        
+        logger.info(f"Phone code hash: {result.phone_code_hash}")
+        logger.info("=== SEND CODE SUCCESS ===")
         
         # Store client temporarily for verification
         active_clients[request.bot_id] = {
@@ -146,16 +179,32 @@ async def send_code(request: SendCodeRequest):
             'api_hash': request.api_hash
         }
         
-        logger.info(f"Code sent successfully to {request.phone_number}")
+        message = "Kod weryfikacyjny został wysłany"
+        if code_type == "SentCodeTypeApp":
+            message = "Kod został wysłany przez aplikację Telegram (sprawdź wiadomości w aplikacji)"
+        elif code_type == "SentCodeTypeSms":
+            message = "Kod został wysłany SMS-em na podany numer"
+        elif code_type == "SentCodeTypeCall":
+            message = "Telegram zadzwoni i poda kod głosowo"
+        elif code_type == "SentCodeTypeFlashCall":
+            message = "Telegram wykona błyskawiczne połączenie"
         
         return {
             "success": True,
             "phone_code_hash": result.phone_code_hash,
-            "message": "Code sent successfully"
+            "code_type": code_type,
+            "message": message
         }
         
+    except errors.ApiIdInvalidError:
+        logger.error("Invalid API ID")
+        raise HTTPException(status_code=400, detail="Nieprawidłowy API ID. Sprawdź czy skopiowałeś poprawnie z my.telegram.org")
+    except errors.PhoneNumberInvalidError:
+        logger.error(f"Invalid phone number: {request.phone_number}")
+        raise HTTPException(status_code=400, detail="Nieprawidłowy numer telefonu. Użyj formatu: +48123456789")
     except Exception as e:
-        logger.error(f"Error sending code: {str(e)}")
+        logger.error(f"=== SEND CODE ERROR ===")
+        logger.error(f"Error: {str(e)}")
         logger.error(f"Error type: {type(e).__name__}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
@@ -390,6 +439,47 @@ async def stop_bot(request: StopBotRequest):
         
     except Exception as e:
         logger.error(f"Error stopping bot: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/telegram/test/send")
+async def send_test_message(request: TestMessageRequest):
+    """Send a test message to a specific group"""
+    try:
+        logger.info(f"Sending test message to group {request.group_id}")
+        
+        # Create client with saved session
+        client = TelegramClient(
+            StringSession(request.session_string),
+            int(request.api_id),
+            request.api_hash
+        )
+        
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            raise HTTPException(status_code=401, detail="Session expired, please re-authenticate")
+        
+        # Send test message
+        try:
+            # Try to parse as integer first (numeric group ID)
+            group_id = int(request.group_id) if request.group_id.lstrip('-').isdigit() else request.group_id
+        except ValueError:
+            # It's a username, use as string
+            group_id = request.group_id
+        
+        await client.send_message(group_id, request.message)
+        
+        await client.disconnect()
+        
+        logger.info(f"Test message sent successfully to {request.group_id}")
+        
+        return {
+            "success": True,
+            "message": "Test message sent successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error sending test message: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/telegram/bot/status/{bot_id}")

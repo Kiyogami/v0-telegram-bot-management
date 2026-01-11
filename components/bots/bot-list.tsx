@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   BotIcon,
   Plus,
@@ -18,6 +19,12 @@ import {
   BarChart3,
   Copy,
   Check,
+  TestTube2,
+  Download,
+  PieChart,
+  Trash,
+  PlayCircle,
+  StopCircle,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BotDialog } from "./bot-dialog"
@@ -34,6 +41,10 @@ import {
 } from "@/components/ui/alert-dialog"
 import { AuthDialog } from "./auth-dialog"
 import { GroupsDialog } from "./groups-dialog"
+import { TestModeDialog } from "./test-mode-dialog"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { ExportImportDialog } from "./export-import-dialog"
+import { AnalyticsDialog } from "./analytics-dialog"
 import { toast } from "sonner"
 
 interface Bot {
@@ -67,6 +78,11 @@ export function BotList({ userId }: BotListProps) {
   const [detailsBot, setDetailsBot] = useState<Bot | null>(null)
   const [togglingBotId, setTogglingBotId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [testingBot, setTestingBot] = useState<Bot | null>(null)
+  const [selectedBotIds, setSelectedBotIds] = useState<Set<string>>(new Set())
+  const [isExportImportOpen, setIsExportImportOpen] = useState(false)
+  const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false)
+  const [isBulkOperating, setIsBulkOperating] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -94,6 +110,9 @@ export function BotList({ userId }: BotListProps) {
 
   const handleToggleBotStatus = async (bot: Bot) => {
     if (!bot.is_authorized && bot.status !== "running") {
+      toast.warning("Bot wymaga autoryzacji", {
+        description: "Najpierw musisz autoryzować bota w Telegram",
+      })
       setAuthorizingBot(bot)
       return
     }
@@ -111,6 +130,23 @@ export function BotList({ userId }: BotListProps) {
       const data = await response.json()
 
       if (!response.ok) {
+        if (response.status === 400 && data.error?.includes("Session expired")) {
+          toast.error("Sesja Telegram wygasła!", {
+            description: "Kliknij przycisk 'Autoryzuj' aby ponownie zalogować się do Telegram",
+            duration: 5000,
+          })
+          setAuthorizingBot(bot)
+          await supabase
+            .from("bots")
+            .update({
+              is_authorized: false,
+              status: "stopped",
+              auth_error: "Sesja wygasła - wymagana ponowna autoryzacja",
+            })
+            .eq("id", bot.id)
+          await loadBots()
+          return
+        }
         throw new Error(data.error || "Nie udało się zmienić statusu bota")
       }
 
@@ -188,6 +224,87 @@ export function BotList({ userId }: BotListProps) {
     }
   }
 
+  const toggleSelectBot = (botId: string) => {
+    const newSelected = new Set(selectedBotIds)
+    if (newSelected.has(botId)) {
+      newSelected.delete(botId)
+    } else {
+      newSelected.add(botId)
+    }
+    setSelectedBotIds(newSelected)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedBotIds.size === bots.length) {
+      setSelectedBotIds(new Set())
+    } else {
+      setSelectedBotIds(new Set(bots.map((b) => b.id)))
+    }
+  }
+
+  const handleBulkStart = async () => {
+    setIsBulkOperating(true)
+    let successCount = 0
+    for (const botId of selectedBotIds) {
+      const bot = bots.find((b) => b.id === botId)
+      if (bot && bot.status !== "running") {
+        try {
+          const response = await fetch("/api/telegram/bot/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ botId }),
+          })
+          if (response.ok) successCount++
+        } catch (error) {
+          console.error(`Failed to start bot ${botId}:`, error)
+        }
+      }
+    }
+    toast.success(`Uruchomiono ${successCount} bot(ów)`)
+    setIsBulkOperating(false)
+    setSelectedBotIds(new Set())
+    loadBots()
+  }
+
+  const handleBulkStop = async () => {
+    setIsBulkOperating(true)
+    let successCount = 0
+    for (const botId of selectedBotIds) {
+      const bot = bots.find((b) => b.id === botId)
+      if (bot && bot.status === "running") {
+        try {
+          const response = await fetch("/api/telegram/bot/stop", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ botId }),
+          })
+          if (response.ok) successCount++
+        } catch (error) {
+          console.error(`Failed to stop bot ${botId}:`, error)
+        }
+      }
+    }
+    toast.success(`Zatrzymano ${successCount} bot(ów)`)
+    setIsBulkOperating(false)
+    setSelectedBotIds(new Set())
+    loadBots()
+  }
+
+  const handleBulkDelete = async () => {
+    setIsBulkOperating(true)
+    const { error } = await supabase.from("bots").delete().in("id", Array.from(selectedBotIds))
+    if (!error) {
+      toast.success(`Usunięto ${selectedBotIds.size} bot(ów)`)
+      setSelectedBotIds(new Set())
+      loadBots()
+    } else {
+      toast.error("Nie udało się usunąć botów")
+    }
+    setIsBulkOperating(false)
+  }
+
+  const selectedBots = bots.filter((bot) => selectedBotIds.has(bot.id))
+
   return (
     <>
       <header className="glass sticky top-0 z-50 border-b border-border/50">
@@ -201,10 +318,56 @@ export function BotList({ userId }: BotListProps) {
               <span className="hidden sm:inline text-muted-foreground text-sm ml-2">/ Dashboard</span>
             </div>
           </div>
-          <Button variant="ghost" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-            <LogOut className="size-4" />
-            <span className="hidden sm:inline">Wyloguj</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedBotIds.size > 0 && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBulkStart}
+                  disabled={isBulkOperating}
+                  title="Uruchom zaznaczone"
+                >
+                  <PlayCircle className="size-4" />
+                  <span className="hidden sm:inline">Start ({selectedBotIds.size})</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBulkStop}
+                  disabled={isBulkOperating}
+                  title="Zatrzymaj zaznaczone"
+                >
+                  <StopCircle className="size-4" />
+                  <span className="hidden sm:inline">Stop ({selectedBotIds.size})</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleBulkDelete}
+                  disabled={isBulkOperating}
+                  className="text-destructive hover:bg-destructive/10 bg-transparent"
+                  title="Usuń zaznaczone"
+                >
+                  <Trash className="size-4" />
+                  <span className="hidden sm:inline">Usuń ({selectedBotIds.size})</span>
+                </Button>
+              </>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setIsAnalyticsOpen(true)} title="Analityka">
+              <PieChart className="size-4" />
+              <span className="hidden sm:inline">Analityka</span>
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setIsExportImportOpen(true)} title="Export/Import">
+              <Download className="size-4" />
+              <span className="hidden sm:inline">Export/Import</span>
+            </Button>
+            <ThemeToggle />
+            <Button variant="ghost" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+              <LogOut className="size-4" />
+              <span className="hidden sm:inline">Wyloguj</span>
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -215,19 +378,31 @@ export function BotList({ userId }: BotListProps) {
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">Twoje Boty</h1>
               <p className="text-muted-foreground mt-1">Zarządzaj i monitoruj swoje boty Telegram</p>
             </div>
-            <Button
-              onClick={() => setIsDialogOpen(true)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:shadow-primary/30"
-            >
-              <Plus className="size-4" />
-              Nowy bot
-            </Button>
+            <div className="flex gap-2">
+              {bots.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={toggleSelectAll}
+                  title={selectedBotIds.size === bots.length ? "Odznacz wszystkie" : "Zaznacz wszystkie"}
+                >
+                  <Checkbox checked={selectedBotIds.size === bots.length} />
+                  <span className="ml-2">Wszystkie</span>
+                </Button>
+              )}
+              <Button
+                onClick={() => setIsDialogOpen(true)}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:shadow-xl hover:shadow-primary/30"
+              >
+                <Plus className="size-4" />
+                Nowy bot
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="glass rounded-xl p-4 border border-border/50">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
+                <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20">
                   <BotIcon className="size-5 text-primary" />
                 </div>
                 <div>
@@ -238,7 +413,7 @@ export function BotList({ userId }: BotListProps) {
             </div>
             <div className="glass rounded-xl p-4 border border-border/50">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
+                <div className="p-2.5 rounded-lg bg-green-500/10">
                   <Zap className="size-5 text-green-500" />
                 </div>
                 <div>
@@ -251,7 +426,7 @@ export function BotList({ userId }: BotListProps) {
             </div>
             <div className="glass rounded-xl p-4 border border-border/50">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-yellow-500/10">
+                <div className="p-2.5 rounded-lg bg-yellow-500/10">
                   <MessageSquare className="size-5 text-yellow-500" />
                 </div>
                 <div>
@@ -264,7 +439,7 @@ export function BotList({ userId }: BotListProps) {
             </div>
             <div className="glass rounded-xl p-4 border border-border/50">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
+                <div className="p-2.5 rounded-lg bg-blue-500/10">
                   <BarChart3 className="size-5 text-blue-500" />
                 </div>
                 <div>
@@ -313,6 +488,7 @@ export function BotList({ userId }: BotListProps) {
                 <CardContent className="p-5">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
+                      <Checkbox checked={selectedBotIds.has(bot.id)} onCheckedChange={() => toggleSelectBot(bot.id)} />
                       <div
                         className={`p-2.5 rounded-xl transition-colors ${bot.status === "running" ? "bg-primary/10 border border-primary/20" : "bg-muted/50 border border-border/50"}`}
                       >
@@ -333,15 +509,16 @@ export function BotList({ userId }: BotListProps) {
                   </div>
 
                   {!bot.is_authorized && (
-                    <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-sm flex items-center gap-2">
+                    <div className="mb-4 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-sm flex items-center gap-2 animate-pulse-glow">
                       <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
-                      Wymaga autoryzacji
+                      <span className="font-medium">Wymaga autoryzacji Telegram</span>
                     </div>
                   )}
 
                   {bot.auth_error && (
-                    <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                      {bot.auth_error}
+                    <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-destructive" />
+                      <span className="font-medium">{bot.auth_error}</span>
                     </div>
                   )}
 
@@ -402,6 +579,15 @@ export function BotList({ userId }: BotListProps) {
                           Start
                         </>
                       )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setTestingBot(bot)}
+                      title="Tryb testowy"
+                      className="border-border/50 hover:border-primary/50 hover:bg-primary/5"
+                    >
+                      <TestTube2 className="size-3" />
                     </Button>
                     <Button
                       size="sm"
@@ -468,6 +654,24 @@ export function BotList({ userId }: BotListProps) {
       {detailsBot && (
         <BotDetailsDialog bot={detailsBot} open={!!detailsBot} onOpenChange={(open) => !open && setDetailsBot(null)} />
       )}
+
+      {testingBot && (
+        <TestModeDialog
+          botId={testingBot.id}
+          botName={testingBot.name}
+          open={!!testingBot}
+          onOpenChange={(open) => !open && setTestingBot(null)}
+        />
+      )}
+
+      <ExportImportDialog
+        selectedBots={selectedBots}
+        open={isExportImportOpen}
+        onOpenChange={setIsExportImportOpen}
+        onImported={loadBots}
+      />
+
+      <AnalyticsDialog bots={bots} open={isAnalyticsOpen} onOpenChange={setIsAnalyticsOpen} />
 
       <AlertDialog open={!!deletingBotId} onOpenChange={() => setDeletingBotId(null)}>
         <AlertDialogContent className="glass border-border/50">

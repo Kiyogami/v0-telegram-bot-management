@@ -23,10 +23,13 @@ CREATE INDEX IF NOT EXISTS idx_message_logs_sent_at ON message_logs(sent_at DESC
 -- RLS Policies
 ALTER TABLE message_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "Users can view their message logs"
+-- Use DROP POLICY IF EXISTS to avoid conflicts
+DROP POLICY IF EXISTS "Users can view their message logs" ON message_logs;
+CREATE POLICY "Users can view their message logs"
   ON message_logs FOR SELECT
   USING (bot_id IN (SELECT id FROM bots WHERE user_id = auth.uid()));
 
-CREATE POLICY IF NOT EXISTS "Users can insert their message logs"
+DROP POLICY IF EXISTS "Users can insert their message logs" ON message_logs;
+CREATE POLICY "Users can insert their message logs"
   ON message_logs FOR INSERT
   WITH CHECK (bot_id IN (SELECT id FROM bots WHERE user_id = auth.uid()));

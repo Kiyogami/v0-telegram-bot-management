@@ -17,7 +17,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { BotIcon, Key, Phone, MessageSquare, Clock, Loader2, Sparkles } from "lucide-react"
+import { BotIcon, Key, Phone, MessageSquare, Clock, Loader2, Sparkles, ExternalLink, Info } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface Bot {
   id: string
@@ -164,6 +165,22 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
               <Key className="size-4" />
               Dane API Telegram
             </div>
+            <Alert className="bg-primary/5 border-primary/20">
+              <Info className="size-4 text-primary" />
+              <AlertDescription className="text-sm">
+                Nie masz API credentials? Uzyskaj je za darmo na{" "}
+                <a
+                  href="https://my.telegram.org/auth"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+                >
+                  my.telegram.org
+                  <ExternalLink className="size-3" />
+                </a>{" "}
+                (API development tools → Create application)
+              </AlertDescription>
+            </Alert>
             <div className="grid gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="grid gap-2">
