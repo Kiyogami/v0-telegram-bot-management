@@ -1,15 +1,16 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Telegram Bot Manager - Manage Multiple Bots 24/7",
-  description: "Create, configure, and run multiple Telegram bots from one powerful dashboard",
+  title: "Menedżer Botów Telegram - Zarządzaj botami 24/7",
+  description: "Twórz, konfiguruj i uruchamiaj wiele botów Telegram z jednego panelu",
   generator: "v0.app",
   icons: {
     icon: [
@@ -30,15 +31,21 @@ export const metadata: Metadata = {
   },
 }
 
+export const viewport: Viewport = {
+  themeColor: "#1a1a2e",
+  colorScheme: "dark",
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`font-sans antialiased`}>
+    <html lang="pl" className="dark">
+      <body className="font-sans antialiased">
         {children}
+        <Toaster position="bottom-right" richColors />
         <Analytics />
       </body>
     </html>

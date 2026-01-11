@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, CheckCircle } from "lucide-react"
+import { Loader2, CheckCircle, Shield, Key, Send, AlertCircle } from "lucide-react"
 
 interface Bot {
   id: string
@@ -71,7 +71,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
 
   const handleVerifyCode = async () => {
     if (!code.trim()) {
-      setError("Please enter the verification code")
+      setError("Wprowadź kod weryfikacyjny")
       return
     }
 
@@ -109,7 +109,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
 
   const handleVerifyPassword = async () => {
     if (!password.trim()) {
-      setError("Please enter your 2FA password")
+      setError("Wprowadź hasło 2FA")
       return
     }
 
@@ -151,34 +151,53 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="glass border-border/50 max-w-md">
         <DialogHeader>
-          <DialogTitle>Autoryzuj {bot.name}</DialogTitle>
-          <DialogDescription>Autoryzuj swojego bota Telegram aby rozpocząć wysyłanie wiadomości</DialogDescription>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+              <Shield className="size-5 text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl">Autoryzacja</DialogTitle>
+              <DialogDescription>{bot.name}</DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         {step === "initial" && (
-          <div className="space-y-4 py-4">
-            <p className="text-sm text-muted-foreground">
-              Kliknij przycisk poniżej aby otrzymać kod weryfikacyjny na <strong>{bot.phone_number}</strong>
-            </p>
-            <Button onClick={handleSendCode} disabled={isLoading} className="w-full">
+          <div className="space-y-6 py-4">
+            <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+              <p className="text-sm text-muted-foreground">
+                Kliknij przycisk poniżej aby otrzymać kod weryfikacyjny na numer:
+              </p>
+              <p className="font-mono text-lg text-foreground mt-2">{bot.phone_number}</p>
+            </div>
+            <Button
+              onClick={handleSendCode}
+              disabled={isLoading}
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Wysyłanie kodu...
                 </>
               ) : (
-                "Wyślij kod weryfikacyjny"
+                <>
+                  <Send className="size-4" />
+                  Wyślij kod weryfikacyjny
+                </>
               )}
             </Button>
           </div>
         )}
 
         {step === "code" && (
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 py-4">
             <div className="space-y-2">
-              <Label htmlFor="code">Kod weryfikacyjny</Label>
+              <Label htmlFor="code" className="text-foreground">
+                Kod weryfikacyjny
+              </Label>
               <Input
                 id="code"
                 placeholder="12345"
@@ -186,83 +205,114 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
                 onChange={(e) => setCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleVerifyCode()}
                 autoFocus
+                className="h-12 text-center text-2xl font-mono tracking-widest bg-background/50 border-border/50 focus:border-primary/50"
               />
-              <p className="text-xs text-muted-foreground">Wprowadź kod wysłany na {bot.phone_number}</p>
+              <p className="text-xs text-muted-foreground text-center">Wprowadź kod wysłany na {bot.phone_number}</p>
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button onClick={handleVerifyCode} disabled={isLoading} className="w-full">
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
+                {error}
+              </div>
+            )}
+            <Button
+              onClick={handleVerifyCode}
+              disabled={isLoading}
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Weryfikacja...
                 </>
               ) : (
-                "Zweryfikuj kod"
+                <>
+                  <CheckCircle className="size-4" />
+                  Zweryfikuj kod
+                </>
               )}
             </Button>
           </div>
         )}
 
         {step === "password" && (
-          <div className="space-y-4 py-4">
+          <div className="space-y-6 py-4">
+            <div className="p-4 rounded-xl bg-warning/10 border border-warning/20">
+              <div className="flex items-center gap-2 text-warning mb-2">
+                <Key className="size-4" />
+                <span className="font-medium">Weryfikacja dwuetapowa</span>
+              </div>
+              <p className="text-sm text-muted-foreground">Twoje konto ma włączone 2FA. Wprowadź swoje hasło.</p>
+            </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Hasło 2FA</Label>
+              <Label htmlFor="password" className="text-foreground">
+                Hasło 2FA
+              </Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="Wprowadź swoje hasło"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleVerifyPassword()}
                 autoFocus
+                className="h-12 bg-background/50 border-border/50 focus:border-primary/50"
               />
-              <p className="text-xs text-muted-foreground">Twoje konto ma włączone 2FA. Wprowadź swoje hasło.</p>
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button onClick={handleVerifyPassword} disabled={isLoading} className="w-full">
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
+                {error}
+              </div>
+            )}
+            <Button
+              onClick={handleVerifyPassword}
+              disabled={isLoading}
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
                   Weryfikacja...
                 </>
               ) : (
-                "Zweryfikuj hasło"
+                <>
+                  <Shield className="size-4" />
+                  Zweryfikuj hasło
+                </>
               )}
             </Button>
           </div>
         )}
 
         {step === "success" && (
-          <div className="flex flex-col items-center justify-center py-8 space-y-4">
-            <CheckCircle className="size-16 text-green-500" />
+          <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-fade-in">
+            <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 animate-pulse-glow">
+              <CheckCircle className="size-12 text-primary" />
+            </div>
             <div className="text-center">
-              <h3 className="text-lg font-semibold">Autoryzacja pomyślna!</h3>
+              <h3 className="text-xl font-semibold text-foreground">Autoryzacja pomyślna!</h3>
               <p className="text-sm text-muted-foreground mt-1">Twój bot jest teraz autoryzowany i gotowy do użycia</p>
             </div>
           </div>
         )}
 
         {step === "error" && (
-          <div className="space-y-4 py-4">
-            <div className="bg-destructive/10 text-destructive rounded-lg p-4 space-y-3">
-              <p className="text-sm font-semibold">{error || "Wystąpił błąd podczas autoryzacji"}</p>
+          <div className="space-y-6 py-4">
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 space-y-3">
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="size-5" />
+                <span className="font-medium">Wystąpił błąd</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{error || "Wystąpił błąd podczas autoryzacji"}</p>
               {helpText && (
-                <div className="border-t border-destructive/20 pt-3 mt-3">
-                  <p className="text-xs text-destructive/90 font-medium mb-2">Jak to naprawić:</p>
-                  <p className="text-xs text-destructive/80">{helpText}</p>
-                  <div className="mt-3 bg-background/50 rounded p-2 text-xs space-y-1">
-                    <p className="font-medium">Kroki do uruchomienia Python backendu:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                      <li>Pobierz projekt z v0 (Download ZIP lub GitHub)</li>
-                      <li>Przejdź do folderu python-backend</li>
-                      <li>Wdróż na Railway.app lub Render.com</li>
-                      <li>Skopiuj URL backendu i dodaj jako PYTHON_BACKEND_URL</li>
-                    </ol>
-                  </div>
+                <div className="pt-3 border-t border-destructive/20">
+                  <p className="text-xs text-muted-foreground">{helpText}</p>
                 </div>
               )}
             </div>
-            <Button onClick={handleRetry} className="w-full">
+            <Button
+              onClick={handleRetry}
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
               Spróbuj ponownie
             </Button>
           </div>
@@ -270,7 +320,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
 
         {step !== "success" && step !== "initial" && (
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border/50">
               Anuluj
             </Button>
           </DialogFooter>
