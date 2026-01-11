@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from telethon import TelegramClient, errors, events
 from telethon.sessions import StringSession
 import random
-from datetime import datetime
-from typing import Optional, Dict
+from datetime import datetime, time as dt_time
+from typing import Optional, Dict, List
 import json
 
 logging.basicConfig(
@@ -63,12 +63,18 @@ class StartBotRequest(BaseModel):
     api_hash: str
     phone_number: str
     session_string: str
-    message_template: str
+    message_template: str  # For backward compatibility, pojedyncza wiadomość
+    messages_list: List[str] = []  # Lista wiadomości do losowania
     min_delay: int
     max_delay: int
     group_ids: list[int]
     auto_reply_enabled: bool = True
     auto_reply_message: str = "To jest tylko bot. Pisz do @praskizbawiciel"
+    schedule_enabled: bool = False
+    schedule_start_hour: int = 8
+    schedule_end_hour: int = 22
+    schedule_days: str = "mon,tue,wed,thu,fri,sat,sun"
+    daily_message_limit: int = 100
 
 class StopBotRequest(BaseModel):
     bot_id: str
@@ -76,16 +82,32 @@ class StopBotRequest(BaseModel):
 # Helper functions
 async def send_messages_loop(bot_id: str, client: TelegramClient, config: dict):
     """Main loop for sending messages to groups"""
-    message_template = config['message_template']
+    messages_list = config.get('messages_list', [])
+    if not messages_list:
+        messages_list = [config['message_template']]
+    
     min_delay = config['min_delay']
     max_delay = config['max_delay']
     group_ids = config['group_ids']
     
-    logger.info(f"Starting message loop for bot {bot_id}")
+    logger.info(f"Starting message loop for bot {bot_id} with {len(messages_list)} message(s)")
     
     while bot_id in bot_tasks:
+        if not is_within_schedule(config):
+            logger.info(f"Bot {bot_id} outside schedule, waiting...")
+            await asyncio.sleep(60)  # Check again in 1 minute
+            continue
+        
+        if not can_send_message(config):
+            logger.info(f"Bot {bot_id} reached daily limit, waiting...")
+            await asyncio.sleep(300)  # Check again in 5 minutes
+            continue
+        
         for group_id in group_ids:
             if bot_id not in bot_tasks:
+                break
+            
+            if not is_within_schedule(config) or not can_send_message(config):
                 break
                 
             attempts = 0
@@ -94,9 +116,14 @@ async def send_messages_loop(bot_id: str, client: TelegramClient, config: dict):
                     delay = random.uniform(min_delay, max_delay)
                     await asyncio.sleep(delay)
                     
-                    await client.send_message(group_id, message_template)
+                    message = random.choice(messages_list)
+                    
+                    await client.send_message(group_id, message)
                     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     logger.info(f"[{current_time}] Message sent to group {group_id} from bot {bot_id}")
+                    
+                    config['messages_sent_today'] = config.get('messages_sent_today', 0) + 1
+                    
                     break
                     
                 except errors.FloodWaitError as e:
@@ -107,11 +134,43 @@ async def send_messages_loop(bot_id: str, client: TelegramClient, config: dict):
                     attempts += 1
                     await asyncio.sleep(2 ** attempts)
                 except Exception as e:
-                    logger.info(f"Error sending to group {group_id}: {e}")
+                    logger.error(f"Error sending to group {group_id}: {e}")
                     break
         
         # Small pause between full cycles
         await asyncio.sleep(5)
+
+def is_within_schedule(config: dict) -> bool:
+    """Check if current time is within bot's schedule"""
+    if not config.get('schedule_enabled', False):
+        return True
+    
+    now = datetime.now()
+    current_hour = now.hour
+    current_day = now.strftime('%a').lower()
+    
+    start_hour = config.get('schedule_start_hour', 0)
+    end_hour = config.get('schedule_end_hour', 24)
+    schedule_days = config.get('schedule_days', 'mon,tue,wed,thu,fri,sat,sun').lower()
+    
+    # Check if current day is in schedule
+    if current_day not in schedule_days:
+        return False
+    
+    # Check if current hour is in schedule
+    if not (start_hour <= current_hour < end_hour):
+        return False
+    
+    return True
+
+def can_send_message(config: dict) -> bool:
+    """Check if bot can send more messages today"""
+    daily_limit = config.get('daily_message_limit', 0)
+    if daily_limit <= 0:
+        return True
+    
+    messages_sent = config.get('messages_sent_today', 0)
+    return messages_sent < daily_limit
 
 # API Endpoints
 @app.post("/api/telegram/auth/send-code")
@@ -326,18 +385,23 @@ async def start_bot(request: StartBotRequest):
             
             @client.on(events.NewMessage)
             async def auto_reply_handler(event):
-                # Ignoruj własne wiadomości i wiadomości z grup
                 if event.out or not event.is_private:
                     return
                 await event.reply(reply_message)
                 logger.info(f"Auto-reply sent to user {event.sender_id}")
         
-        # Store bot configuration
         config = {
             'message_template': request.message_template,
+            'messages_list': request.messages_list,
             'min_delay': request.min_delay,
             'max_delay': request.max_delay,
-            'group_ids': request.group_ids
+            'group_ids': request.group_ids,
+            'schedule_enabled': request.schedule_enabled,
+            'schedule_start_hour': request.schedule_start_hour,
+            'schedule_end_hour': request.schedule_end_hour,
+            'schedule_days': request.schedule_days,
+            'daily_message_limit': request.daily_message_limit,
+            'messages_sent_today': 0
         }
         
         # Start message sending loop
