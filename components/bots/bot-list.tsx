@@ -18,8 +18,6 @@ import {
   BarChart3,
   Copy,
   Check,
-  Clock,
-  List,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BotDialog } from "./bot-dialog"
@@ -36,8 +34,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { AuthDialog } from "./auth-dialog"
 import { GroupsDialog } from "./groups-dialog"
-import { ScheduleConfig } from "./schedule-config"
-import { MessagesListDialog } from "./messages-list-dialog"
 import { toast } from "sonner"
 
 interface Bot {
@@ -54,12 +50,6 @@ interface Bot {
   auto_reply_enabled?: boolean
   api_id: string
   api_hash: string
-  schedule_enabled?: boolean
-  schedule_start_hour?: number
-  schedule_end_hour?: number
-  schedule_days?: string
-  daily_message_limit?: number
-  messages_list?: string[]
 }
 
 interface BotListProps {
@@ -75,8 +65,6 @@ export function BotList({ userId }: BotListProps) {
   const [authorizingBot, setAuthorizingBot] = useState<Bot | null>(null)
   const [managingGroupsBot, setManagingGroupsBot] = useState<Bot | null>(null)
   const [detailsBot, setDetailsBot] = useState<Bot | null>(null)
-  const [scheduleBot, setScheduleBot] = useState<Bot | null>(null)
-  const [messagesBot, setMessagesBot] = useState<Bot | null>(null)
   const [togglingBotId, setTogglingBotId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const router = useRouter()
@@ -370,20 +358,6 @@ export function BotList({ userId }: BotListProps) {
                         <span className="text-primary">Włączona</span>
                       </div>
                     )}
-                    {bot.schedule_enabled && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Harmonogram</span>
-                        <span className="text-yellow-500">
-                          {bot.schedule_start_hour}:00 - {bot.schedule_end_hour}:00
-                        </span>
-                      </div>
-                    )}
-                    {bot.messages_list && bot.messages_list.length > 1 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Wiadomości</span>
-                        <span className="text-blue-500">{bot.messages_list.length} szablonów</span>
-                      </div>
-                    )}
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">ID</span>
                       <button
@@ -407,7 +381,7 @@ export function BotList({ userId }: BotListProps) {
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant={bot.status === "running" ? "destructive" : "default"}
@@ -446,24 +420,6 @@ export function BotList({ userId }: BotListProps) {
                       className="border-border/50 hover:border-primary/50 hover:bg-primary/5"
                     >
                       <Users className="size-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setScheduleBot(bot)}
-                      title="Harmonogram"
-                      className={`border-border/50 hover:border-yellow-500/50 hover:bg-yellow-500/5 ${bot.schedule_enabled ? "text-yellow-500 border-yellow-500/30" : ""}`}
-                    >
-                      <Clock className="size-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setMessagesBot(bot)}
-                      title="Lista wiadomości"
-                      className="border-border/50 hover:border-blue-500/50 hover:bg-blue-500/5"
-                    >
-                      <List className="size-3" />
                     </Button>
                     <Button
                       size="sm"
@@ -511,31 +467,6 @@ export function BotList({ userId }: BotListProps) {
 
       {detailsBot && (
         <BotDetailsDialog bot={detailsBot} open={!!detailsBot} onOpenChange={(open) => !open && setDetailsBot(null)} />
-      )}
-
-      {scheduleBot && (
-        <ScheduleConfig
-          botId={scheduleBot.id}
-          botName={scheduleBot.name}
-          open={!!scheduleBot}
-          onOpenChange={(open) => !open && setScheduleBot(null)}
-          initialData={{
-            schedule_enabled: scheduleBot.schedule_enabled ?? false,
-            schedule_start_hour: scheduleBot.schedule_start_hour ?? 8,
-            schedule_end_hour: scheduleBot.schedule_end_hour ?? 22,
-            schedule_days: scheduleBot.schedule_days ?? "mon,tue,wed,thu,fri,sat,sun",
-            daily_message_limit: scheduleBot.daily_message_limit ?? 100,
-          }}
-        />
-      )}
-
-      {messagesBot && (
-        <MessagesListDialog
-          botId={messagesBot.id}
-          botName={messagesBot.name}
-          open={!!messagesBot}
-          onOpenChange={(open) => !open && setMessagesBot(null)}
-        />
       )}
 
       <AlertDialog open={!!deletingBotId} onOpenChange={() => setDeletingBotId(null)}>
