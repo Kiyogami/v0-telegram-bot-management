@@ -380,14 +380,14 @@ export function BotList({ userId }: BotListProps) {
             </div>
             <div className="flex gap-2">
               {bots.length > 0 && (
-                <Button
-                  variant="outline"
+                <div
+                  className="inline-flex items-center gap-2 cursor-pointer select-none rounded-md border border-input bg-background px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
                   onClick={toggleSelectAll}
                   title={selectedBotIds.size === bots.length ? "Odznacz wszystkie" : "Zaznacz wszystkie"}
                 >
                   <Checkbox checked={selectedBotIds.size === bots.length} />
-                  <span className="ml-2">Wszystkie</span>
-                </Button>
+                  <span>Wszystkie</span>
+                </div>
               )}
               <Button
                 onClick={() => setIsDialogOpen(true)}

@@ -1,38 +1,68 @@
 # Telegram Bot Management System
 
-A full-stack web application for managing multiple Telegram bots with a Next.js frontend and Python backend.
+A professional system for managing multiple Telegram bots with automated message sending, analytics dashboard, and an admin panel.
 
 ## Architecture
 
-- **Frontend**: Next.js 16 with React 19, Tailwind CSS, shadcn/ui
-- **Backend**: Python FastAPI with Telethon for Telegram API
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth
+- **Frontend**: Next.js 16 + React 19 + Tailwind CSS v4 + shadcn/ui
+- **Backend**: Python FastAPI + Telethon for Telegram API
+- **Database**: Supabase (PostgreSQL with RLS)
+- **Authentication**: Supabase Auth + Role-based access control
 
 ## Features
 
-- Multi-bot management interface
-- Telegram authentication with code and 2FA support
-- Automated message sending to groups with anti-spam delays
-- Auto-reply to private messages
-- Real-time bot status monitoring
-- Secure session storage
+### Bot Management
+- Creation and configuration of multiple Telegram bots
+- **QR Code Authentication** - quick login by scanning a code
+- Traditional SMS/App authentication + 2FA support
+- Automatic detection and selection of groups for message sending
+- Auto-replies to private messages
 
-## Setup
+### Advanced Features
+- **Bulk Operations** - batch operations (start/stop/delete multiple bots)
+- **Export/Import** - backup and restore of bot configurations
+- **Analytics Dashboard** - performance charts, real-time statistics
+- **Test Mode** - sending test messages before mass campaigns
+- **Dark/Light Mode** - theme switching
 
-### Prerequisites
+### Admin Panel
+- Full system overview (users, bots, statistics)
+- User permission management
+- Activity charts for the last 7 days
+- Bot deletion and content moderation
+
+### Anti-Ban Protection
+- Intelligent random delays between messages
+- Respect for FloodWait errors from Telegram
+- Daily message limit
+- Detection of expired sessions
+
+## Requirements
 
 - Node.js 18+
 - Python 3.11+
 - Supabase account
+- Railway account (for hosting Python backend)
 
-### Database Setup
+## Setup
 
-1. Run the SQL scripts in the `scripts` folder in your Supabase SQL editor:
-   - `001_create_bots_tables.sql`
-   - `002_add_auth_fields.sql`
+### 1. Database (Supabase)
 
-### Frontend Setup
+Run the SQL scripts in order in your Supabase SQL editor:
+
+```sql
+scripts/001_create_bots_tables.sql
+scripts/002_add_auth_fields.sql  
+scripts/003_create_groups_table.sql
+scripts/004_add_group_enabled_field.sql
+scripts/005_add_auto_reply_field.sql
+scripts/008_final_schema_fix.sql
+scripts/011_complete_admin_fix.sql
+```
+
+**Important**: Your account will automatically be set as an administrator if you use an email from the database.
+
+### 2. Frontend (Next.js)
 
 1. Install dependencies:
 ```bash
@@ -49,7 +79,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-### Python Backend Setup
+### 3. Python Backend
 
 1. Navigate to the Python backend directory:
 ```bash
@@ -68,63 +98,189 @@ python main.py
 
 The Python backend will run on `http://localhost:8000`
 
-### Docker Deployment (Python Backend)
-
-```bash
-cd python-backend
-docker build -t telegram-bot-backend .
-docker run -p 8000:8000 telegram-bot-backend
-```
-
-## Usage
-
-1. Sign up / Log in to the application
-2. Create a new bot with your Telegram API credentials
-3. Authorize the bot with your phone number and verification code
-4. Configure message templates and delays
-5. Start the bot to begin sending messages
-
 ## Environment Variables
 
-- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous key
-- `PYTHON_BACKEND_URL` - **PUBLIC** URL of the Python backend (e.g., https://your-backend.up.railway.app)
-  - **IMPORTANT**: Use the public Railway URL (ending in .up.railway.app)
-  - **DO NOT** use internal Railway URLs (ending in .railway.internal)
-  - For local development: http://localhost:8000
+### Next.js (.env.local)
+
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=xxx
+SUPABASE_SERVICE_ROLE_KEY=xxx
+
+# Python Backend (USE PUBLIC URL!)
+PYTHON_BACKEND_URL=https://your-backend.up.railway.app
+
+# Development only
+NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL=http://localhost:3000
+```
+
+### Python Backend (Railway)
+
+Railway automatically sets `PORT`. No environment variables need to be added.
 
 ## Production Deployment
 
-### Next.js Frontend
+### Frontend on Vercel
 
-Deploy to Vercel:
+1. Click **"Publish"** in the top right corner of v0
+2. Connect with your Vercel account
+3. Add environment variables
+4. Deploy!
+
+### **Important: Python Backend on Railway**
+
+⚠️ **Railway has an OLD version of the code without QR login and updated endpoints!**
+
+#### How to Update Railway:
+
+**Method 1: Through GitHub (recommended)**
+
 ```bash
-vercel deploy
+# Copy the updated python-backend/main.py from v0
+git add python-backend/main.py
+git commit -m "Update Python backend with QR login"
+git push origin main
 ```
 
-### Python Backend on Railway
+Railway automatically detects and deploys the new version.
 
-1. Create a new project on Railway.app
-2. Deploy the `python-backend` folder
-3. Railway will auto-detect the Dockerfile
-4. Go to Settings → Networking → Generate Domain
-5. Copy the PUBLIC domain (e.g., `https://python-backend-production-xxxx.up.railway.app`)
-6. Add this URL as `PYTHON_BACKEND_URL` in your Next.js deployment (Vercel)
+**Method 2: Directly in Railway**
 
-**Common Mistake**: Using `.railway.internal` URLs - these only work between Railway services, not from external apps like Vercel.
+1. Open Railway Dashboard → Your project
+2. Click service → "View Files"
+3. Find `main.py`
+4. Replace the entire content with the code from v0
+5. Railway automatically redeploy
 
-## How It Works
+#### Verification of Deployment:
 
-1. **Authentication**: User logs in with email/password via Supabase Auth
-2. **Bot Creation**: User adds Telegram API credentials (api_id, api_hash, phone number)
-3. **Telegram Authorization**: Python backend handles Telegram auth flow with Telethon
-4. **Session Storage**: Telegram session strings are stored securely in Supabase
-5. **Bot Execution**: Python backend runs bots 24/7, sending messages and handling auto-replies
-6. **Frontend Control**: Next.js frontend provides UI for managing bots (start/stop/configure)
+Open in your browser:
+```
+https://your-backend.railway.app/api/debug/routes
+```
+
+You should see endpoints:
+- `/api/telegram/auth/send-code`
+- `/api/telegram/auth/qr-login` ✨ **NEW**
+- `/api/telegram/auth/qr-check` ✨ **NEW**
+- `/api/telegram/auth/verify-code`
+- `/api/telegram/groups/fetch`
+
+**If you see 404 for these endpoints** = Railway has an old version → follow the deployment steps above again.
+
+## Usage
+
+### Creating a Bot
+
+1. Log in to the application
+2. Click **"Add Bot"**
+3. Get API credentials from [my.telegram.org/auth](https://my.telegram.org/auth)
+4. Enter API ID, API Hash, phone number
+
+### Bot Authorization
+
+**Option 1: QR Code (recommended, faster)**
+1. Click **"QR Code Login"**
+2. Scan the code in the Telegram app
+3. Done!
+
+**Option 2: SMS/App Code**
+1. Click **"Authorize"**
+2. Telegram will send a code (check app or SMS)
+3. Enter the verification code
+4. If you have 2FA, enter the password
+
+### Sending Configuration
+
+1. Click **"Groups"** to select where to send
+2. The system automatically detects all your groups
+3. Select target groups
+4. Set the message and delays (min/max delay)
+5. Click **"Start"** to run the bot 24/7
+
+### Test Mode
+
+Before mass sending:
+1. Click the **"Test"** icon (a ball) on the bot card
+2. Select a test group
+3. Send a test message
+4. Check if everything works
+
+## Troubleshooting
+
+### Bot not sending authorization code
+
+**Reason**: Railway uses an old version of the backend code without fixes.
+
+**Solution**: 
+1. Go to the **"Production Deployment"** section above
+2. Follow the Railway update steps
+3. Wait 2-3 minutes for deployment
+4. Refresh the page and try again
+
+### "Session expired" error
+
+**Reason**: Telegram session expired (normal after a few days).
+
+**Solution**:
+1. Click **"Authorize"** on the bot card
+2. Log in again via QR or code
+
+### 404 Error for endpoints
+
+**Reason**: Railway uses an old version of the code.
+
+**Solution**: See the **"How to Update Railway"** section above.
+
+### Multiple GoTrueClient instances warning
+
+This warning does not affect the application's functionality. It occurs when Supabase creates multiple clients, but it is handled by the singleton pattern.
+
+## Admin Panel
+
+Available for users with the `admin` role at `/admin`.
+
+To set an administrator:
+1. Log in to your account
+2. Run in Supabase SQL Editor:
+```sql
+INSERT INTO admin_users (user_id, email)
+VALUES ('your-user-id', 'your@email.com');
+```
+
+The panel displays:
+- System statistics (users, bots, messages)
+- List of all users with permission granting capability
+- List of all bots in the system
+- Activity charts
 
 ## Security Notes
 
 - Never commit `.env` files with real credentials
-- Session strings are encrypted in the database
-- Row Level Security (RLS) ensures users can only access their own bots
-- Python backend should be deployed with proper authentication in production
+- Session strings are stored securely in the database
+- Row Level Security (RLS) ensures that users can only see their own bots
+- The `admin_users` table is without RLS for admin access
+- 2FA support for Telegram accounts with additional protection
+
+## Technical Stack
+
+- **Next.js 16** with App Router and React Server Components
+- **Tailwind CSS v4** with custom design tokens
+- **shadcn/ui** for UI components
+- **Supabase** for authentication and database
+- **FastAPI** + **Telethon** for Python backend
+- **Recharts** for charts and analytics
+- **Sonner** for toast notifications
+
+## License
+
+MIT License - use as you wish, build your own projects!
+
+---
+
+**Have questions?** Check:
+- `RAILWAY_DEPLOYMENT.md` - detailed deployment instructions
+- `VERCEL_DEPLOYMENT.md` - Vercel deployment guide  
+- `DEPLOYMENT_GUIDE.md` - comprehensive step-by-step guide

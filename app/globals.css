@@ -133,7 +133,6 @@
   }
 }
 
-/* Animacje i efekty */
 @keyframes pulse-glow {
   0%,
   100% {
@@ -161,6 +160,7 @@
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -176,14 +176,12 @@
   animation: fade-in 0.2s ease-out;
 }
 
-/* Efekt szkła */
 .glass {
   background: oklch(0.16 0.005 285 / 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid oklch(0.3 0.005 285 / 0.5);
 }
 
-/* Gradienty */
 .gradient-border {
   position: relative;
 }
@@ -202,7 +200,6 @@
   pointer-events: none;
 }
 
-/* Status indicators */
 .status-running {
   background: oklch(0.7 0.15 160 / 0.15);
   color: oklch(0.75 0.15 160);

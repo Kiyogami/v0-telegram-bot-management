@@ -9,17 +9,31 @@ from telethon.sessions import StringSession
 import random
 from datetime import datetime
 from typing import Optional, Dict
-import json
+
+# Supabase jest całkowicie opcjonalny - backend działa bez niego
+supabase = None
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_KEY")
+
+if supabase_url and supabase_key:
+    try:
+        from supabase import create_client, Client
+        supabase: Client = create_client(supabase_url, supabase_key)
+        print(f"Supabase connected: {supabase_url[:30]}...")
+    except Exception as e:
+        print(f"Supabase connection failed (optional): {e}")
+        supabase = None
+else:
+    print("Running WITHOUT Supabase (phone_code_hash stored in memory only)")
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# CORS configuration for Next.js
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,7 +42,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Store active bot clients
+# Store active bot clients and sessions in memory
 active_clients: Dict[str, dict] = {}
 bot_tasks: Dict[str, asyncio.Task] = {}
 
@@ -68,7 +82,7 @@ class StartBotRequest(BaseModel):
     max_delay: int
     group_ids: list[int]
     auto_reply_enabled: bool = True
-    auto_reply_message: str = "To jest tylko bot. Pisz do @praskizbawiciel"
+    auto_reply_message: str = "To jest tylko bot."
 
 class StopBotRequest(BaseModel):
     bot_id: str
@@ -81,9 +95,8 @@ class TestMessageRequest(BaseModel):
     group_id: str
     message: str
 
-# Helper functions
+# Message sending loop
 async def send_messages_loop(bot_id: str, client: TelegramClient, config: dict):
-    """Main loop for sending messages to groups"""
     message_template = config['message_template']
     min_delay = config['min_delay']
     max_delay = config['max_delay']
@@ -95,157 +108,98 @@ async def send_messages_loop(bot_id: str, client: TelegramClient, config: dict):
         for group_id in group_ids:
             if bot_id not in bot_tasks:
                 break
-                
-            attempts = 0
-            while attempts < 5:
-                try:
-                    delay = random.uniform(min_delay, max_delay)
-                    await asyncio.sleep(delay)
-                    
-                    await client.send_message(group_id, message_template)
-                    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    logger.info(f"[{current_time}] Message sent to group {group_id} from bot {bot_id}")
-                    break
-                    
-                except errors.FloodWaitError as e:
-                    logger.info(f"FloodWaitError: waiting {e.seconds} seconds")
-                    await asyncio.sleep(e.seconds)
-                except errors.ServerError as e:
-                    logger.info(f"Server error: {e}, retrying...")
-                    attempts += 1
-                    await asyncio.sleep(2 ** attempts)
-                except Exception as e:
-                    logger.info(f"Error sending to group {group_id}: {e}")
-                    break
-        
-        # Small pause between full cycles
+            try:
+                delay = random.uniform(min_delay, max_delay)
+                await asyncio.sleep(delay)
+                await client.send_message(group_id, message_template)
+                logger.info(f"Message sent to group {group_id}")
+            except errors.FloodWaitError as e:
+                logger.info(f"FloodWait: {e.seconds}s")
+                await asyncio.sleep(e.seconds)
+            except Exception as e:
+                logger.error(f"Error sending to {group_id}: {e}")
         await asyncio.sleep(5)
 
-# API Endpoints
+# Send verification code - using exact same method as working script
 @app.post("/api/telegram/auth/send-code")
 async def send_code(request: SendCodeRequest):
-    """Send verification code to phone number"""
+    """Send verification code - using exact same method as working script"""
     try:
-        logger.info(f"=== SEND CODE START ===")
-        logger.info(f"Bot ID: {request.bot_id}")
-        logger.info(f"Phone: {request.phone_number}")
-        logger.info(f"API ID: {request.api_id}")
-        logger.info(f"API Hash length: {len(request.api_hash)}")
+        logger.info(f"=== SEND CODE ===")
+        logger.info(f"Phone: {request.phone_number}, API ID: {request.api_id}")
         
-        if not request.api_id or not request.api_hash:
-            raise HTTPException(status_code=400, detail="API ID and API Hash are required")
-        
-        if len(request.api_hash) < 32:
-            raise HTTPException(status_code=400, detail="Invalid API Hash format")
-        
-        # Create client with empty StringSession
-        logger.info("Creating Telegram client...")
+        # Create client exactly like in working script
         client = TelegramClient(
             StringSession(),
             int(request.api_id),
             request.api_hash
         )
         
-        logger.info("Connecting to Telegram...")
         await client.connect()
         
-        if not await client.is_connected():
-            raise HTTPException(status_code=500, detail="Failed to connect to Telegram")
+        # Sign in with code and phone_code_hash
+        result = await client.send_code_request(request.phone_number)
+        phone_code_hash = result.phone_code_hash
         
-        logger.info("Connected successfully!")
+        logger.info(f"Code sent! Hash: {phone_code_hash[:10]}...")
         
-        # Send code
-        logger.info(f"Requesting code for phone: {request.phone_number} (via Telegram app)")
-        result = await client.send_code_request(
-            request.phone_number,
-            force_sms=False  # Wymuś wysyłanie przez aplikację zamiast SMS
-        )
-        
-        code_type = "unknown"
-        if hasattr(result, 'type'):
-            if hasattr(result.type, '__class__'):
-                code_type = result.type.__class__.__name__
-                logger.info(f"Code type: {code_type}")
-        
-        logger.info(f"Phone code hash: {result.phone_code_hash}")
-        logger.info("=== SEND CODE SUCCESS ===")
-        
-        # Store client temporarily for verification
+        # Store client for verification
         active_clients[request.bot_id] = {
             'client': client,
             'phone': request.phone_number,
-            'phone_code_hash': result.phone_code_hash,
+            'phone_code_hash': phone_code_hash,
             'api_id': request.api_id,
             'api_hash': request.api_hash
         }
         
-        message = "Kod weryfikacyjny został wysłany"
-        if code_type == "SentCodeTypeApp":
-            message = "Kod został wysłany przez aplikację Telegram (sprawdź wiadomości w aplikacji)"
-        elif code_type == "SentCodeTypeSms":
-            message = "Kod został wysłany SMS-em na podany numer"
-        elif code_type == "SentCodeTypeCall":
-            message = "Telegram zadzwoni i poda kod głosowo"
-        elif code_type == "SentCodeTypeFlashCall":
-            message = "Telegram wykona błyskawiczne połączenie"
+        # Try to save to Supabase if available
+        if supabase:
+            try:
+                supabase.table('bots').update({
+                    'phone_code_hash': phone_code_hash
+                }).eq('id', request.bot_id).execute()
+            except Exception as e:
+                logger.warning(f"Could not save to Supabase: {e}")
         
         return {
             "success": True,
-            "phone_code_hash": result.phone_code_hash,
-            "code_type": code_type,
-            "message": message
+            "phone_code_hash": phone_code_hash,
+            "code_type": "SentCodeTypeApp",
+            "message": "Kod wysłany! Sprawdź aplikację Telegram lub SMS."
         }
         
     except errors.ApiIdInvalidError:
-        logger.error("Invalid API ID")
-        raise HTTPException(status_code=400, detail="Nieprawidłowy API ID. Sprawdź czy skopiowałeś poprawnie z my.telegram.org")
+        raise HTTPException(status_code=400, detail="Nieprawidłowy API ID")
     except errors.PhoneNumberInvalidError:
-        logger.error(f"Invalid phone number: {request.phone_number}")
-        raise HTTPException(status_code=400, detail="Nieprawidłowy numer telefonu. Użyj formatu: +48123456789")
+        raise HTTPException(status_code=400, detail="Nieprawidłowy numer telefonu")
     except Exception as e:
-        logger.error(f"=== SEND CODE ERROR ===")
-        logger.error(f"Error: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/telegram/auth/verify-code")
 async def verify_code(request: VerifyCodeRequest):
-    """Verify the code sent to phone"""
+    """Verify the code"""
     try:
-        logger.info(f"Verifying code for bot {request.bot_id}")
+        logger.info(f"=== VERIFY CODE ===")
         
-        client = TelegramClient(
-            StringSession(),
-            int(request.api_id),
-            request.api_hash
-        )
+        if request.bot_id not in active_clients:
+            raise HTTPException(status_code=400, detail="Brak aktywnej sesji. Wyślij kod ponownie.")
         
-        await client.connect()
+        client_data = active_clients[request.bot_id]
+        client = client_data['client']
+        phone_code_hash = client_data['phone_code_hash']
         
-        # Sign in with code using phone_code_hash from database
         try:
+            # Sign in with code and phone_code_hash
             await client.sign_in(
                 phone=request.phone_number,
                 code=request.phone_code,
-                phone_code_hash=request.phone_code_hash
+                phone_code_hash=phone_code_hash
             )
             
-            # Get session string
-            session_string = client.session.save()
+            session_string = StringSession.save(client.session)
+            logger.info(f"Logged in! Session length: {len(session_string)}")
             
-            logger.info(f"Code verified successfully for bot {request.bot_id}")
-            
-            # Store client temporarily for potential 2FA password verification
-            active_clients[request.bot_id] = {
-                'client': client,
-                'phone': request.phone_number,
-                'api_id': request.api_id,
-                'api_hash': request.api_hash
-            }
-            
-            # Disconnect temporary client
             await client.disconnect()
             del active_clients[request.bot_id]
             
@@ -256,132 +210,92 @@ async def verify_code(request: VerifyCodeRequest):
             }
             
         except errors.SessionPasswordNeededError:
-            logger.info(f"2FA password required for bot {request.bot_id}")
-            
-            # Store client for password verification
-            active_clients[request.bot_id] = {
-                'client': client,
-                'phone': request.phone_number,
-                'api_id': request.api_id,
-                'api_hash': request.api_hash
-            }
-            
             return {
                 "success": False,
                 "requires_password": True,
-                "message": "2FA password required"
+                "message": "Wymagane hasło 2FA"
             }
+        except errors.PhoneCodeInvalidError:
+            raise HTTPException(status_code=400, detail="Nieprawidłowy kod")
+        except errors.PhoneCodeExpiredError:
+            await client.disconnect()
+            del active_clients[request.bot_id]
+            raise HTTPException(status_code=400, detail="Kod wygasł")
             
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error verifying code: {str(e)}")
+        logger.error(f"Error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/telegram/auth/verify-password")
 async def verify_password(request: VerifyPasswordRequest):
     """Verify 2FA password"""
     try:
-        logger.info(f"Verifying 2FA password for bot {request.bot_id}")
-        
         if request.bot_id not in active_clients:
-            raise HTTPException(status_code=400, detail="No active session found")
+            raise HTTPException(status_code=400, detail="Brak sesji")
         
-        client_data = active_clients[request.bot_id]
-        client = client_data['client']
-        
-        # Sign in with password
+        client = active_clients[request.bot_id]['client']
         await client.sign_in(password=request.password)
+        session_string = StringSession.save(client.session)
         
-        # Get session string
-        session_string = client.session.save()
-        
-        logger.info(f"2FA verified successfully for bot {request.bot_id}")
-        
-        # Disconnect temporary client
         await client.disconnect()
         del active_clients[request.bot_id]
         
-        return {
-            "success": True,
-            "session_string": session_string
-        }
-        
+        return {"success": True, "session_string": session_string}
     except Exception as e:
-        logger.error(f"Error verifying password: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/telegram/groups/fetch")
 async def fetch_groups(request: FetchGroupsRequest):
-    """Fetch all groups/chats the bot is a member of"""
+    """Fetch groups"""
     try:
-        logger.info(f"Fetching groups for bot {request.bot_id}")
-        
-        # Create client with saved session
         client = TelegramClient(
             StringSession(request.session_string),
             int(request.api_id),
             request.api_hash
         )
-        
         await client.connect()
         
         if not await client.is_user_authorized():
-            raise HTTPException(status_code=401, detail="Session expired")
+            raise HTTPException(status_code=401, detail="Sesja wygasła")
         
         groups = []
         async for dialog in client.iter_dialogs():
-            # Only include groups and channels, not private chats
             if dialog.is_group or dialog.is_channel:
                 groups.append({
                     "group_id": str(dialog.id),
-                    "group_name": dialog.name or "Unnamed Group",
+                    "group_name": dialog.name or "Unnamed",
                     "is_channel": dialog.is_channel,
-                    "is_group": dialog.is_group,
-                    "participant_count": getattr(dialog.entity, 'participants_count', 0) if hasattr(dialog, 'entity') else 0
+                    "is_group": dialog.is_group
                 })
         
         await client.disconnect()
-        
-        logger.info(f"Found {len(groups)} groups for bot {request.bot_id}")
-        
-        return {
-            "success": True,
-            "groups": groups
-        }
-        
+        return {"success": True, "groups": groups}
     except Exception as e:
-        logger.error(f"Error fetching groups: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/telegram/bot/start")
 async def start_bot(request: StartBotRequest):
-    """Start a bot with saved session"""
+    """Start bot"""
     try:
-        logger.info(f"Starting bot {request.bot_id}")
-        
-        # Create client with saved session
         client = TelegramClient(
             StringSession(request.session_string),
             int(request.api_id),
             request.api_hash
         )
-        
         await client.connect()
         
         if not await client.is_user_authorized():
-            raise HTTPException(status_code=401, detail="Session expired, please re-authenticate")
+            raise HTTPException(status_code=401, detail="Sesja wygasła")
         
         if request.auto_reply_enabled:
-            reply_message = request.auto_reply_message
-            
             @client.on(events.NewMessage)
-            async def auto_reply_handler(event):
-                # Ignoruj własne wiadomości i wiadomości z grup
+            async def handler(event):
                 if event.out or not event.is_private:
                     return
-                await event.reply(reply_message)
-                logger.info(f"Auto-reply sent to user {event.sender_id}")
+                await event.reply(request.auto_reply_message)
         
-        # Store bot configuration
         config = {
             'message_template': request.message_template,
             'min_delay': request.min_delay,
@@ -389,131 +303,60 @@ async def start_bot(request: StartBotRequest):
             'group_ids': request.group_ids
         }
         
-        # Start message sending loop
         task = asyncio.create_task(send_messages_loop(request.bot_id, client, config))
         bot_tasks[request.bot_id] = task
+        active_clients[request.bot_id] = {'client': client, 'task': task}
         
-        active_clients[request.bot_id] = {
-            'client': client,
-            'task': task,
-            'config': config
-        }
-        
-        logger.info(f"Bot {request.bot_id} started successfully")
-        
-        return {
-            "success": True,
-            "message": "Bot started successfully"
-        }
-        
+        return {"success": True, "message": "Bot started"}
     except Exception as e:
-        logger.error(f"Error starting bot: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/telegram/bot/stop")
 async def stop_bot(request: StopBotRequest):
-    """Stop a running bot"""
+    """Stop bot"""
     try:
-        logger.info(f"Stopping bot {request.bot_id}")
+        if request.bot_id in bot_tasks:
+            bot_tasks[request.bot_id].cancel()
+            del bot_tasks[request.bot_id]
         
-        if request.bot_id not in bot_tasks:
-            return {"success": True, "message": "Bot already stopped"}
-        
-        # Cancel task
-        task = bot_tasks[request.bot_id]
-        task.cancel()
-        del bot_tasks[request.bot_id]
-        
-        # Disconnect client
         if request.bot_id in active_clients:
-            client_data = active_clients[request.bot_id]
-            await client_data['client'].disconnect()
+            await active_clients[request.bot_id]['client'].disconnect()
             del active_clients[request.bot_id]
         
-        logger.info(f"Bot {request.bot_id} stopped successfully")
-        
-        return {
-            "success": True,
-            "message": "Bot stopped successfully"
-        }
-        
+        return {"success": True}
     except Exception as e:
-        logger.error(f"Error stopping bot: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/api/telegram/test/send")
-async def send_test_message(request: TestMessageRequest):
-    """Send a test message to a specific group"""
+async def test_send(request: TestMessageRequest):
+    """Send test message"""
     try:
-        logger.info(f"Sending test message to group {request.group_id}")
-        
-        # Create client with saved session
         client = TelegramClient(
             StringSession(request.session_string),
             int(request.api_id),
             request.api_hash
         )
-        
         await client.connect()
         
         if not await client.is_user_authorized():
-            raise HTTPException(status_code=401, detail="Session expired, please re-authenticate")
+            raise HTTPException(status_code=401, detail="Sesja wygasła")
         
-        # Send test message
-        try:
-            # Try to parse as integer first (numeric group ID)
-            group_id = int(request.group_id) if request.group_id.lstrip('-').isdigit() else request.group_id
-        except ValueError:
-            # It's a username, use as string
-            group_id = request.group_id
-        
+        group_id = int(request.group_id) if request.group_id.lstrip('-').isdigit() else request.group_id
         await client.send_message(group_id, request.message)
-        
         await client.disconnect()
         
-        logger.info(f"Test message sent successfully to {request.group_id}")
-        
-        return {
-            "success": True,
-            "message": "Test message sent successfully"
-        }
-        
+        return {"success": True}
     except Exception as e:
-        logger.error(f"Error sending test message: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/api/telegram/bot/status/{bot_id}")
-async def get_bot_status(bot_id: str):
-    """Get bot status"""
-    is_running = bot_id in bot_tasks
-    return {
-        "bot_id": bot_id,
-        "is_running": is_running
-    }
-
-@app.get("/api/debug/routes")
-async def list_routes():
-    """List all available API routes"""
-    routes = []
-    for route in app.routes:
-        if hasattr(route, 'path') and hasattr(route, 'methods'):
-            routes.append({
-                "path": route.path,
-                "methods": list(route.methods) if route.methods else []
-            })
-    return {"routes": routes}
+async def bot_status(bot_id: str):
+    return {"bot_id": bot_id, "is_running": bot_id in bot_tasks}
 
 @app.get("/health")
-async def health_check():
-    logger.info("Health check called")
-    return {"status": "ok", "message": "Python backend is running"}
+async def health():
+    return {"status": "ok", "supabase": supabase is not None}
 
 @app.get("/")
 async def root():
-    return {"message": "Telegram Bot Management Backend", "status": "running"}
-
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    logger.info(f"Starting server on port {port}")
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    return {"message": "Telegram Bot Backend", "status": "running"}

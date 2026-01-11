@@ -191,11 +191,10 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
         {step === "initial" && (
           <div className="space-y-6 py-4">
             <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
-              <p className="text-sm text-muted-foreground">
-                Kliknij przycisk poniżej aby otrzymać kod weryfikacyjny na numer:
-              </p>
+              <p className="text-sm text-muted-foreground">Telegram wyśle kod weryfikacyjny dla bota:</p>
               <p className="font-mono text-lg text-foreground mt-2">{bot.phone_number}</p>
             </div>
+
             <Button
               onClick={handleSendCode}
               disabled={isLoading}

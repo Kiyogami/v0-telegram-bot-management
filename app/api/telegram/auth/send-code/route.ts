@@ -7,7 +7,7 @@ function ensureProtocol(url: string): string {
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
     return `https://${url}`
   }
-  return url
+  return url.replace(/\/$/, "")
 }
 
 const PYTHON_BACKEND_URL = ensureProtocol(process.env.PYTHON_BACKEND_URL || "http://localhost:8000")
@@ -58,6 +58,7 @@ export async function POST(request: Request) {
 
     console.log("[v0] Forwarding to Python backend for phone:", bot.phone_number)
     console.log("[v0] Python backend URL:", PYTHON_BACKEND_URL)
+    console.log("[v0] Full request URL:", `${PYTHON_BACKEND_URL}/api/telegram/auth/send-code`)
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
@@ -79,6 +80,24 @@ export async function POST(request: Request) {
 
       clearTimeout(timeoutId)
 
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("[v0] Python backend error response:", response.status, errorText)
+
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { detail: errorText }
+        }
+
+        throw new Error(
+          errorData.detail ||
+            `Python backend zwrócił błąd ${response.status}. ` +
+              `Sprawdź czy Railway wdrożył najnowszą wersję kodu z endpointem /api/telegram/auth/send-code`,
+        )
+      }
+
       const contentType = response.headers.get("content-type")
       if (!contentType || !contentType.includes("application/json")) {
         console.error("[v0] Python backend returned non-JSON response:", contentType)
@@ -87,15 +106,12 @@ export async function POST(request: Request) {
             `Sprawdź:\n` +
             `1. Czy używasz PUBLICZNEGO URL Railway (np. https://twoj-backend.up.railway.app)\n` +
             `2. Czy Python backend jest uruchomiony\n` +
-            `3. Czy URL ma protokół https://`,
+            `3. Czy URL ma protokół https://\n` +
+            `4. Czy Railway wdrożył najnowszą wersję kodu`,
         )
       }
 
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.detail || "Failed to send code")
-      }
 
       await supabase
         .from("bots")
@@ -121,7 +137,7 @@ export async function POST(request: Request) {
 
       if (fetchError.name === "AbortError") {
         throw new Error(
-          `Python backend timeout.\n\nURL: ${PYTHON_BACKEND_URL}\n\nUpewnij się że:\n1. Backend jest uruchomiony\n2. Używasz PUBLICZNEGO URL (nie .railway.internal)`,
+          `Python backend timeout.\n\nURL: ${PYTHON_BACKEND_URL}\n\nUpewnij się że:\n1. Backend jest uruchomiony\n2. Używasz PUBLICZNEGO URL (nie .railway.internal)\n3. Railway wdrożył najnowszą wersję`,
         )
       }
 
@@ -136,7 +152,7 @@ export async function POST(request: Request) {
         helpText:
           "Backend URL: " +
           PYTHON_BACKEND_URL +
-          "\n\nUpewnij się, że używasz PUBLICZNEGO URL Railway (nie .railway.internal)",
+          "\n\nUpewnij się, że:\n1. Używasz PUBLICZNEGO URL Railway (nie .railway.internal)\n2. Railway wdrożył najnowszą wersję python-backend/main.py\n3. Endpoint /api/telegram/auth/send-code istnieje w kodzie",
       },
       { status: 500 },
     )
