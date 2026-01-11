@@ -13,7 +13,7 @@ A professional system for managing multiple Telegram bots with automated message
 
 ### Bot Management
 - Creation and configuration of multiple Telegram bots
-- **QR Code Authentication** - quick login by scanning a code
+- **🚀 QR Code Authentication (NEW!)** - instant login by scanning a QR code in Telegram app
 - Traditional SMS/App authentication + 2FA support
 - Automatic detection and selection of groups for message sending
 - Auto-replies to private messages
@@ -181,16 +181,19 @@ You should see endpoints:
 
 ### Bot Authorization
 
-**Option 1: QR Code (recommended, faster)**
-1. Click **"QR Code Login"**
-2. Scan the code in the Telegram app
-3. Done!
+**Option 1: 🚀 QR Code (Recommended - Fast & Easy)**
+1. Click **"Authorize"** on the bot
+2. Select **"QR Code (Recommended)"**
+3. Open Telegram app → Settings → Devices → Link Desktop Device
+4. Scan the displayed QR code
+5. Confirm in the app - **Done in 3 seconds!**
 
-**Option 2: SMS/App Code**
-1. Click **"Authorize"**
-2. Telegram will send a code (check app or SMS)
-3. Enter the verification code
-4. If you have 2FA, enter the password
+**Option 2: 📱 SMS/App Code**
+1. Click **"Authorize"** on the bot
+2. Select **"SMS/App Code"**
+3. Telegram will send a code (check app or SMS)
+4. Enter the verification code
+5. If you have 2FA, enter the password
 
 ### Sending Configuration
 
@@ -234,6 +237,16 @@ Before mass sending:
 
 **Solution**: See the **"How to Update Railway"** section above.
 
+### QR Code not generating
+
+**Reason**: Railway backend doesn't have QR endpoints yet.
+
+**Solution**:
+1. See `QR_LOGIN_SETUP.md` for complete setup instructions
+2. Unlock `python-backend/main.py` and `python-backend/requirements.txt` in v0
+3. Add QR endpoints and dependencies (instructions in `QR_LOGIN_SETUP.md`)
+4. Deploy updated code to Railway
+
 ### Multiple GoTrueClient instances warning
 
 This warning does not affect the application's functionality. It occurs when Supabase creates multiple clients, but it is handled by the singleton pattern.
@@ -273,6 +286,14 @@ The panel displays:
 - **FastAPI** + **Telethon** for Python backend
 - **Recharts** for charts and analytics
 - **Sonner** for toast notifications
+
+## Documentation
+
+Check these files for detailed instructions:
+- `QR_LOGIN_SETUP.md` - **Complete QR login setup guide** 🆕
+- `RAILWAY_DEPLOYMENT.md` - Railway deployment instructions
+- `VERCEL_DEPLOYMENT.md` - Vercel deployment guide  
+- `DEPLOYMENT_GUIDE.md` - Comprehensive step-by-step guide
 
 ## License
 

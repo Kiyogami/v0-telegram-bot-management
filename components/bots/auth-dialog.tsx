@@ -1,18 +1,14 @@
 "use client"
 
+import { DialogFooter } from "@/components/ui/dialog"
+
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, CheckCircle, Shield, Key, Send, AlertCircle, Smartphone, MessageSquare } from "lucide-react"
+import { Loader2, CheckCircle, Shield, Key, Send, AlertCircle, Smartphone, MessageSquare, QrCode } from "lucide-react"
+import { QRAuthDialog } from "./qr-auth-dialog"
 
 interface Bot {
   id: string
@@ -39,6 +35,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
   const [helpText, setHelpText] = useState<string | null>(null)
   const [codeType, setCodeType] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showQRDialog, setShowQRDialog] = useState(false)
 
   const handleSendCode = async () => {
     setIsLoading(true)
@@ -173,209 +170,260 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
     return <Send className="size-4 text-primary" />
   }
 
+  const handleQRSuccess = (sessionString: string) => {
+    setStep("success")
+    setTimeout(() => {
+      onAuthComplete()
+    }, 1500)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass border-border/50 max-w-md">
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
-              <Shield className="size-5 text-primary" />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="glass border-border/50 max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20">
+                <Shield className="size-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-xl">Autoryzacja</DialogTitle>
+                <DialogDescription>{bot.name}</DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-xl">Autoryzacja</DialogTitle>
-              <DialogDescription>{bot.name}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        {step === "initial" && (
-          <div className="space-y-6 py-4">
-            <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
-              <p className="text-sm text-muted-foreground">Telegram wyśle kod weryfikacyjny dla bota:</p>
-              <p className="font-mono text-lg text-foreground mt-2">{bot.phone_number}</p>
-            </div>
+          {step === "initial" && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
+                <p className="text-sm text-muted-foreground">Wybierz metodę autoryzacji dla bota:</p>
+                <p className="font-mono text-lg text-foreground mt-2">{bot.phone_number}</p>
+              </div>
 
-            <Button
-              onClick={handleSendCode}
-              disabled={isLoading}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Wysyłanie kodu...
-                </>
-              ) : (
-                <>
-                  <Send className="size-4" />
-                  Wyślij kod weryfikacyjny
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-
-        {step === "code" && (
-          <div className="space-y-6 py-4">
-            {helpText && (
-              <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 animate-fade-in">
-                <div className="flex items-start gap-3">
-                  {getCodeTypeIcon()}
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground mb-1">{helpText}</p>
-                    {codeType === "SentCodeTypeApp" && (
-                      <p className="text-xs text-muted-foreground">
-                        Otwórz aplikację Telegram na swoim telefonie i sprawdź wiadomości od Telegram
-                      </p>
-                    )}
-                    {codeType === "SentCodeTypeSms" && (
-                      <p className="text-xs text-muted-foreground">
-                        Sprawdź wiadomości SMS na numerze {bot.phone_number}
-                      </p>
-                    )}
+              <Button
+                onClick={() => setShowQRDialog(true)}
+                variant="outline"
+                className="w-full h-14 border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                    <QrCode className="size-5 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold text-foreground">Kod QR (Zalecane)</p>
+                    <p className="text-xs text-muted-foreground">Szybkie logowanie przez aplikację</p>
                   </div>
                 </div>
-              </div>
-            )}
+              </Button>
 
-            <div className="space-y-2">
-              <Label htmlFor="code" className="text-foreground">
-                Kod weryfikacyjny
-              </Label>
-              <Input
-                id="code"
-                placeholder="12345"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleVerifyCode()}
-                autoFocus
-                className="h-12 text-center text-2xl font-mono tracking-widest bg-background/50 border-border/50 focus:border-primary/50"
-              />
-              <p className="text-xs text-muted-foreground text-center">
-                {codeType === "SentCodeTypeApp"
-                  ? "Kod został wysłany przez aplikację Telegram"
-                  : codeType === "SentCodeTypeSms"
-                    ? "Kod został wysłany SMS-em"
-                    : "Wprowadź otrzymany kod weryfikacyjny"}
-              </p>
-            </div>
-            {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
-                {error}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border/50"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">lub</span>
+                </div>
               </div>
-            )}
-            <Button
-              onClick={handleVerifyCode}
-              disabled={isLoading}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Weryfikacja...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="size-4" />
-                  Zweryfikuj kod
-                </>
-              )}
-            </Button>
-          </div>
-        )}
 
-        {step === "password" && (
-          <div className="space-y-6 py-4">
-            <div className="p-4 rounded-xl bg-warning/10 border border-warning/20">
-              <div className="flex items-center gap-2 text-warning mb-2">
-                <Key className="size-4" />
-                <span className="font-medium">Weryfikacja dwuetapowa</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Twoje konto ma włączone 2FA. Wprowadź swoje hasło.</p>
+              <Button
+                onClick={handleSendCode}
+                disabled={isLoading}
+                variant="outline"
+                className="w-full h-14 border-2 border-border/50 hover:border-border hover:bg-muted/50 bg-transparent"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Wysyłanie kodu...
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-muted/50">
+                      <MessageSquare className="size-5 text-muted-foreground" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-foreground">Kod SMS/App</p>
+                      <p className="text-xs text-muted-foreground">Otrzymaj kod weryfikacyjny</p>
+                    </div>
+                  </div>
+                )}
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">
-                Hasło 2FA
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleVerifyPassword()}
-                autoFocus
-                className="h-12 bg-background/50 border-border/50 focus:border-primary/50"
-              />
-            </div>
-            {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
-                {error}
-              </div>
-            )}
-            <Button
-              onClick={handleVerifyPassword}
-              disabled={isLoading}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Weryfikacja...
-                </>
-              ) : (
-                <>
-                  <Shield className="size-4" />
-                  Zweryfikuj hasło
-                </>
-              )}
-            </Button>
-          </div>
-        )}
+          )}
 
-        {step === "success" && (
-          <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-fade-in">
-            <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 animate-pulse-glow">
-              <CheckCircle className="size-12 text-primary" />
-            </div>
-            <div className="text-center">
-              <h3 className="text-xl font-semibold text-foreground">Autoryzacja pomyślna!</h3>
-              <p className="text-sm text-muted-foreground mt-1">Twój bot jest teraz autoryzowany i gotowy do użycia</p>
-            </div>
-          </div>
-        )}
-
-        {step === "error" && (
-          <div className="space-y-6 py-4">
-            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 space-y-3">
-              <div className="flex items-center gap-2 text-destructive">
-                <AlertCircle className="size-5" />
-                <span className="font-medium">Wystąpił błąd</span>
-              </div>
-              <p className="text-sm text-muted-foreground">{error || "Wystąpił błąd podczas autoryzacji"}</p>
+          {step === "code" && (
+            <div className="space-y-6 py-4">
               {helpText && (
-                <div className="pt-3 border-t border-destructive/20">
-                  <p className="text-xs text-muted-foreground">{helpText}</p>
+                <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 animate-fade-in">
+                  <div className="flex items-start gap-3">
+                    {getCodeTypeIcon()}
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground mb-1">{helpText}</p>
+                      {codeType === "SentCodeTypeApp" && (
+                        <p className="text-xs text-muted-foreground">
+                          Otwórz aplikację Telegram na swoim telefonie i sprawdź wiadomości od Telegram
+                        </p>
+                      )}
+                      {codeType === "SentCodeTypeSms" && (
+                        <p className="text-xs text-muted-foreground">
+                          Sprawdź wiadomości SMS na numerze {bot.phone_number}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-            <Button
-              onClick={handleRetry}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              Spróbuj ponownie
-            </Button>
-          </div>
-        )}
 
-        {step !== "success" && step !== "initial" && (
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border/50">
-              Anuluj
-            </Button>
-          </DialogFooter>
-        )}
-      </DialogContent>
-    </Dialog>
+              <div className="space-y-2">
+                <Label htmlFor="code" className="text-foreground">
+                  Kod weryfikacyjny
+                </Label>
+                <Input
+                  id="code"
+                  placeholder="12345"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleVerifyCode()}
+                  autoFocus
+                  className="h-12 text-center text-2xl font-mono tracking-widest bg-background/50 border-border/50 focus:border-primary/50"
+                />
+                <p className="text-xs text-muted-foreground text-center">
+                  {codeType === "SentCodeTypeApp"
+                    ? "Kod został wysłany przez aplikację Telegram"
+                    : codeType === "SentCodeTypeSms"
+                      ? "Kod został wysłany SMS-em"
+                      : "Wprowadź otrzymany kod weryfikacyjny"}
+                </p>
+              </div>
+              {error && (
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
+                  {error}
+                </div>
+              )}
+              <Button
+                onClick={handleVerifyCode}
+                disabled={isLoading}
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Weryfikacja...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="size-4" />
+                    Zweryfikuj kod
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {step === "password" && (
+            <div className="space-y-6 py-4">
+              <div className="p-4 rounded-xl bg-warning/10 border border-warning/20">
+                <div className="flex items-center gap-2 text-warning mb-2">
+                  <Key className="size-4" />
+                  <span className="font-medium">Weryfikacja dwuetapowa</span>
+                </div>
+                <p className="text-sm text-muted-foreground">Twoje konto ma włączone 2FA. Wprowadź swoje hasło.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-foreground">
+                  Hasło 2FA
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleVerifyPassword()}
+                  autoFocus
+                  className="h-12 bg-background/50 border-border/50 focus:border-primary/50"
+                />
+              </div>
+              {error && (
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
+                  {error}
+                </div>
+              )}
+              <Button
+                onClick={handleVerifyPassword}
+                disabled={isLoading}
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Weryfikacja...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="size-4" />
+                    Zweryfikuj hasło
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {step === "success" && (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4 animate-fade-in">
+              <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 animate-pulse-glow">
+                <CheckCircle className="size-12 text-primary" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-xl font-semibold text-foreground">Autoryzacja pomyślna!</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Twój bot jest teraz autoryzowany i gotowy do użycia
+                </p>
+              </div>
+            </div>
+          )}
+
+          {step === "error" && (
+            <div className="space-y-6 py-4">
+              <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 space-y-3">
+                <div className="flex items-center gap-2 text-destructive">
+                  <AlertCircle className="size-5" />
+                  <span className="font-medium">Wystąpił błąd</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{error || "Wystąpił błąd podczas autoryzacji"}</p>
+                {helpText && (
+                  <div className="pt-3 border-t border-destructive/20">
+                    <p className="text-xs text-muted-foreground">{helpText}</p>
+                  </div>
+                )}
+              </div>
+              <Button
+                onClick={handleRetry}
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                Spróbuj ponownie
+              </Button>
+            </div>
+          )}
+
+          {step !== "success" && step !== "initial" && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border/50">
+                Anuluj
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <QRAuthDialog
+        open={showQRDialog}
+        onOpenChange={setShowQRDialog}
+        botId={bot.id}
+        apiId={bot.api_id}
+        apiHash={bot.api_hash}
+        onSuccess={handleQRSuccess}
+      />
+    </>
   )
 }
