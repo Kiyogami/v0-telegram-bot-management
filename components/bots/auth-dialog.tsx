@@ -1,14 +1,13 @@
 "use client"
 
 import { DialogFooter } from "@/components/ui/dialog"
-
+import { Textarea } from "@/components/ui/textarea"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, CheckCircle, Shield, Key, Send, AlertCircle, Smartphone, MessageSquare, QrCode } from "lucide-react"
-import { QRAuthDialog } from "./qr-auth-dialog"
+import { Loader2, CheckCircle, Shield, Key, Send, AlertCircle, Smartphone, MessageSquare } from "lucide-react"
 
 interface Bot {
   id: string
@@ -25,17 +24,17 @@ interface AuthDialogProps {
   onAuthComplete: () => void
 }
 
-type AuthStep = "initial" | "code" | "password" | "success" | "error"
+type AuthStep = "method" | "initial" | "code" | "password" | "string-session" | "success" | "error"
 
 export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDialogProps) {
-  const [step, setStep] = useState<AuthStep>("initial")
+  const [step, setStep] = useState<AuthStep>("method")
   const [code, setCode] = useState("")
   const [password, setPassword] = useState("")
+  const [stringSession, setStringSession] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [helpText, setHelpText] = useState<string | null>(null)
   const [codeType, setCodeType] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [showQRDialog, setShowQRDialog] = useState(false)
 
   const handleSendCode = async () => {
     setIsLoading(true)
@@ -152,6 +151,39 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
     }
   }
 
+  const handleStringSessionAuth = async () => {
+    if (!stringSession.trim()) {
+      setError("Wprowadź String Session")
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch("/api/telegram/auth/verify-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ botId: bot.id, sessionString: stringSession }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Nieprawidłowa sesja")
+      }
+
+      setStep("success")
+      setTimeout(() => {
+        onAuthComplete()
+      }, 1500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nieprawidłowa sesja")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleRetry = () => {
     setStep("initial")
     setCode("")
@@ -170,13 +202,6 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
     return <Send className="size-4 text-primary" />
   }
 
-  const handleQRSuccess = (sessionString: string) => {
-    setStep("success")
-    setTimeout(() => {
-      onAuthComplete()
-    }, 1500)
-  }
-
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -193,43 +218,164 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
             </div>
           </DialogHeader>
 
-          {step === "initial" && (
+          {step === "method" && (
             <div className="space-y-4 py-4">
-              <div className="p-4 rounded-xl bg-muted/30 border border-border/50">
-                <p className="text-sm text-muted-foreground">Wybierz metodę autoryzacji dla bota:</p>
-                <p className="font-mono text-lg text-foreground mt-2">{bot.phone_number}</p>
+              <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
+                <p className="text-sm font-medium text-foreground mb-2">Wybierz metodę autoryzacji:</p>
+                <p className="text-xs text-muted-foreground">
+                  String Session to profesjonalna metoda używana przez managery botów
+                </p>
               </div>
 
               <Button
-                onClick={() => setShowQRDialog(true)}
-                variant="outline"
-                className="w-full h-14 border-2 border-primary/20 hover:border-primary/40 hover:bg-primary/5 group"
+                onClick={() => setStep("string-session")}
+                className="w-full h-16 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
               >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                    <QrCode className="size-5 text-primary" />
+                  <div className="p-2 rounded-lg bg-primary-foreground/10">
+                    <Key className="size-5" />
                   </div>
                   <div className="text-left">
-                    <p className="font-semibold text-foreground">Kod QR (Zalecane)</p>
-                    <p className="text-xs text-muted-foreground">Szybkie logowanie przez aplikację</p>
+                    <p className="font-semibold">String Session (Zalecane)</p>
+                    <p className="text-xs opacity-80">Brak kodów SMS, działa 24/7</p>
                   </div>
                 </div>
               </Button>
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border/50"></div>
+              <Button
+                onClick={() => setStep("initial")}
+                variant="outline"
+                className="w-full h-16 border-border/50 hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-muted">
+                    <MessageSquare className="size-5" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-semibold">Kod SMS/App</p>
+                    <p className="text-xs opacity-80">Tradycyjna metoda z kodem weryfikacyjnym</p>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">lub</span>
+              </Button>
+
+              <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                <p className="text-xs text-muted-foreground font-medium mb-2">Co to jest String Session?</p>
+                <p className="text-xs text-muted-foreground">
+                  To gotowa sesja Telegram którą generujesz jednorazowo. Bot działa potem bez kodów SMS i nie wygasa.
+                  Profesjonalne rozwiązanie używane w farmach kont.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {step === "string-session" && (
+            <div className="space-y-6 py-4">
+              <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
+                <div className="flex items-start gap-3">
+                  <Key className="size-4 text-primary mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground mb-1">Wklej String Session</p>
+                    <p className="text-xs text-muted-foreground">
+                      Wygeneruj String Session lokalnie i wklej tutaj. Bot będzie działał bez kodów SMS.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="string-session" className="text-foreground">
+                  String Session
+                </Label>
+                <Textarea
+                  id="string-session"
+                  placeholder="1AgAO..."
+                  value={stringSession}
+                  onChange={(e) => setStringSession(e.target.value)}
+                  rows={4}
+                  className="font-mono text-xs bg-background/50 border-border/50 focus:border-primary/50 resize-none"
+                />
+                <div className="p-3 rounded-lg bg-muted/20 border border-border/30 space-y-2">
+                  <p className="text-xs font-medium text-foreground">Jak wygenerować String Session?</p>
+                  <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>
+                      Zainstaluj Telethon: <code className="bg-muted px-1 py-0.5 rounded">pip install telethon</code>
+                    </li>
+                    <li>
+                      Uruchom skrypt:{" "}
+                      <a
+                        href="https://gist.github.com/username/generate-session"
+                        className="text-primary hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        generate_session.py
+                      </a>
+                    </li>
+                    <li>Skopiuj wygenerowany string i wklej powyżej</li>
+                  </ol>
+                </div>
+              </div>
+
+              {error && (
+                <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm animate-fade-in">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStep("method")}
+                  className="flex-1 border-border/50"
+                >
+                  Wstecz
+                </Button>
+                <Button
+                  onClick={handleStringSessionAuth}
+                  disabled={isLoading}
+                  className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Weryfikacja...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="size-4" />
+                      Autoryzuj
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === "initial" && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 rounded-xl bg-warning/10 border border-warning/20">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="size-4 text-warning mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground mb-2">Ważne! Gdzie przyjdzie kod?</p>
+                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>
+                        <strong>90% przypadków:</strong> Kod przychodzi do <strong>aplikacji Telegram</strong> (nie
+                        SMS!)
+                      </li>
+                      <li>Sprawdź "Wiadomości od Telegram" w aplikacji na telefonie</li>
+                      <li>Jeśli numer jest już zalogowany w Telegram, SMS nigdy nie przyjdzie</li>
+                      <li>Jeśli masz włączone 2FA, poprosimy też o hasło</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
 
               <Button
                 onClick={handleSendCode}
                 disabled={isLoading}
-                variant="outline"
-                className="w-full h-14 border-2 border-border/50 hover:border-border hover:bg-muted/50 bg-transparent"
+                className="w-full h-14 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
               >
                 {isLoading ? (
                   <>
@@ -238,16 +384,22 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
                   </>
                 ) : (
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted/50">
-                      <MessageSquare className="size-5 text-muted-foreground" />
+                    <div className="p-2 rounded-lg bg-primary-foreground/10">
+                      <MessageSquare className="size-5" />
                     </div>
                     <div className="text-left">
-                      <p className="font-semibold text-foreground">Kod SMS/App</p>
-                      <p className="text-xs text-muted-foreground">Otrzymaj kod weryfikacyjny</p>
+                      <p className="font-semibold">Wyślij kod weryfikacyjny</p>
+                      <p className="text-xs opacity-80">Otrzymasz kod przez aplikację Telegram lub SMS</p>
                     </div>
                   </div>
                 )}
               </Button>
+
+              <div className="p-3 rounded-lg bg-muted/20 border border-border/30">
+                <p className="text-xs text-muted-foreground">
+                  Kod zostanie wysłany na numer {bot.phone_number}. Sprawdź aplikację Telegram lub wiadomości SMS.
+                </p>
+              </div>
             </div>
           )}
 
@@ -406,7 +558,7 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
             </div>
           )}
 
-          {step !== "success" && step !== "initial" && (
+          {step !== "success" && step !== "initial" && step !== "string-session" && (
             <DialogFooter>
               <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border/50">
                 Anuluj
@@ -415,15 +567,6 @@ export function AuthDialog({ bot, open, onOpenChange, onAuthComplete }: AuthDial
           )}
         </DialogContent>
       </Dialog>
-
-      <QRAuthDialog
-        open={showQRDialog}
-        onOpenChange={setShowQRDialog}
-        botId={bot.id}
-        apiId={bot.api_id}
-        apiHash={bot.api_hash}
-        onSuccess={handleQRSuccess}
-      />
     </>
   )
 }

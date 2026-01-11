@@ -31,6 +31,8 @@ interface Bot {
   max_delay: number
   auto_reply_message: string
   auto_reply_enabled: boolean
+  session_string: string | null
+  is_authorized: boolean
 }
 
 interface BotDialogProps {
@@ -45,6 +47,7 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
   const [apiId, setApiId] = useState("")
   const [apiHash, setApiHash] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
+  const [sessionString, setSessionString] = useState("")
   const [message, setMessage] = useState("")
   const [autoReplyMessage, setAutoReplyMessage] = useState("To jest tylko bot. Pisz do @praskizbawiciel")
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(true)
@@ -60,6 +63,7 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
       setApiId(bot.api_id)
       setApiHash(bot.api_hash)
       setPhoneNumber(bot.phone_number)
+      setSessionString(bot.session_string || "")
       setMessage(bot.message_content || "")
       setAutoReplyMessage(bot.auto_reply_message || "To jest tylko bot. Pisz do @praskizbawiciel")
       setAutoReplyEnabled(bot.auto_reply_enabled ?? true)
@@ -70,6 +74,7 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
       setApiId("")
       setApiHash("")
       setPhoneNumber("")
+      setSessionString("")
       setMessage("")
       setAutoReplyMessage("To jest tylko bot. Pisz do @praskizbawiciel")
       setAutoReplyEnabled(true)
@@ -95,6 +100,8 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
         api_id: apiId,
         api_hash: apiHash,
         phone_number: phoneNumber,
+        session_string: sessionString || null,
+        is_authorized: sessionString ? true : bot?.is_authorized || false,
         message_content: message || null,
         auto_reply_message: autoReplyMessage,
         auto_reply_enabled: autoReplyEnabled,
@@ -219,6 +226,31 @@ export function BotDialog({ open, onOpenChange, onBotSaved, bot }: BotDialogProp
                   required
                   className="bg-background/50 border-border/50 focus:border-primary/50"
                 />
+              </div>
+              {/* String Session Field */}
+              <div className="grid gap-2">
+                <Label htmlFor="session-string" className="flex items-center gap-2">
+                  <Key className="size-3" />
+                  String Session (opcjonalne - zalecane)
+                </Label>
+                <Textarea
+                  id="session-string"
+                  placeholder="1AgAO... (wklej wygenerowany String Session)"
+                  value={sessionString}
+                  onChange={(e) => setSessionString(e.target.value)}
+                  rows={3}
+                  className="bg-background/50 border-border/50 focus:border-primary/50 resize-none font-mono text-xs"
+                />
+                <Alert className="bg-primary/5 border-primary/20">
+                  <Info className="size-4 text-primary" />
+                  <AlertDescription className="text-xs">
+                    <strong>Zalecane:</strong> Wklej String Session aby pominąć kody SMS. Bot będzie działał od razu
+                    24/7 bez wygasania sesji. Wygeneruj lokalnie:
+                    <code className="block mt-1 p-1 bg-muted rounded text-[10px]">
+                      cd scripts && python generate_session.py
+                    </code>
+                  </AlertDescription>
+                </Alert>
               </div>
             </div>
           </div>
