@@ -1,12 +1,19 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || "http://localhost:8000"
+function ensureProtocol(url: string): string {
+  if (!url) return url
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    return `https://${url}`
+  }
+  return url.replace(/\/$/, "")
+}
+
+const PYTHON_BACKEND_URL = ensureProtocol(process.env.PYTHON_BACKEND_URL || "http://localhost:8000")
 
 export async function POST(request: Request) {
   try {
     const { botId, code } = await request.json()
-    console.log("[v0] Verify code request for bot:", botId)
 
     if (!botId || !code) {
       return NextResponse.json({ error: "Bot ID and code are required" }, { status: 400 })
@@ -23,7 +30,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get bot details
     const { data: bot, error: botError } = await supabase
       .from("bots")
       .select("*")
@@ -35,27 +41,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bot not found" }, { status: 404 })
     }
 
-    if (!bot.phone_code_hash) {
-      return NextResponse.json(
-        { error: "No verification code sent yet. Please request a code first." },
-        { status: 400 },
-      )
-    }
-
-    console.log("[v0] Forwarding code verification to Python backend with stored phone_code_hash")
-
-    const response = await fetch(`${PYTHON_BACKEND_URL}/api/telegram/auth/verify-code`, {
+    // Forwarding code verification to Python backend with stored phone_code_hash
+    const response = await fetch(`${PYTHON_BACKEND_URL}/verify-code`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        bot_id: botId,
-        api_id: bot.api_id,
-        api_hash: bot.api_hash,
-        phone_number: bot.phone_number,
-        phone_code: code,
-        phone_code_hash: bot.phone_code_hash,
+        phone: bot.phone_number,
+        code: code,
       }),
     })
 
@@ -66,9 +58,8 @@ export async function POST(request: Request) {
     }
 
     // Check if 2FA is required
-    if (data.requires_password) {
-      console.log("[v0] 2FA required")
-      return NextResponse.json({ needsPassword: true }, { status: 200 })
+    if (data.status === "PASSWORD_REQUIRED") {
+      return NextResponse.json({ needsPassword: true, message: data.info }, { status: 200 })
     }
 
     // Save session string to database
@@ -82,28 +73,11 @@ export async function POST(request: Request) {
           auth_error: null,
         })
         .eq("id", botId)
-
-      console.log("[v0] Session saved to database")
     }
 
     return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("[v0] Telegram verify code error:", error)
-
-    const { botId } = await request.json()
-    if (botId) {
-      const supabase = await createClient()
-      await supabase
-        .from("bots")
-        .update({
-          auth_error: error instanceof Error ? error.message : "Verification failed",
-        })
-        .eq("id", botId)
-    }
-
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to verify code" },
-      { status: 500 },
-    )
+  } catch (error: any) {
+    console.error("[v0] Verify code error:", error.message)
+    return NextResponse.json({ error: error.message || "Failed to verify code" }, { status: 500 })
   }
 }

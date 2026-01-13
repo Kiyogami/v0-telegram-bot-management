@@ -13,10 +13,12 @@ const PYTHON_BACKEND_URL = ensureProtocol(process.env.PYTHON_BACKEND_URL || "htt
 
 export async function POST(request: Request) {
   try {
-    const { botId, password } = await request.json()
+    const formData = await request.formData()
+    const botId = formData.get("botId") as string
+    const sessionFile = formData.get("sessionFile") as File
 
-    if (!botId || !password) {
-      return NextResponse.json({ error: "Bot ID and password are required" }, { status: 400 })
+    if (!botId || !sessionFile) {
+      return NextResponse.json({ error: "Bot ID and session file are required" }, { status: 400 })
     }
 
     const supabase = await createClient()
@@ -41,19 +43,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Bot not found" }, { status: 404 })
     }
 
-    const response = await fetch(`${PYTHON_BACKEND_URL}/verify-password`, {
+    const backendFormData = new FormData()
+    backendFormData.append("session_file", sessionFile)
+    backendFormData.append("api_id", bot.api_id)
+    backendFormData.append("api_hash", bot.api_hash)
+    backendFormData.append("phone", bot.phone_number)
+
+    const response = await fetch(`${PYTHON_BACKEND_URL}/import-session`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        phone: bot.phone_number,
-        password: password,
-      }),
+      body: backendFormData,
     })
 
     const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.detail || "Failed to verify password")
+      throw new Error(data.detail || "Failed to import session")
     }
 
     // Save session string to database
@@ -68,9 +72,9 @@ export async function POST(request: Request) {
         .eq("id", botId)
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, message: data.info || "Sesja zaimportowana!" })
   } catch (error: any) {
-    console.error("[v0] Verify password error:", error.message)
-    return NextResponse.json({ error: error.message || "Failed to verify password" }, { status: 500 })
+    console.error("[v0] Import session error:", error.message)
+    return NextResponse.json({ error: error.message || "Failed to import session" }, { status: 500 })
   }
 }
