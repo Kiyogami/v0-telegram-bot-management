@@ -122,8 +122,14 @@ export function GroupsDialog({ botId, botName, open, onOpenChange }: GroupsDialo
 
       const data = await response.json()
 
-      if (!data.success || !data.groups) {
-        throw new Error("No groups returned")
+      console.log("[v0] Groups response:", data)
+
+      if (!data.groups || !Array.isArray(data.groups)) {
+        throw new Error("Nieprawidłowa odpowiedź z serwera")
+      }
+
+      if (data.groups.length === 0) {
+        throw new Error("Nie znaleziono żadnych grup na tym koncie")
       }
 
       setDetectedGroups(data.groups)

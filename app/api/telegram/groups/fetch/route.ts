@@ -55,9 +55,20 @@ export async function POST(request: Request) {
     }
 
     const data = await response.json()
+    console.log("[v0] Raw backend response:", JSON.stringify(data).substring(0, 200))
     console.log("[v0] Found groups:", data.groups?.length || 0)
 
-    return NextResponse.json(data)
+    const mappedGroups = (data.groups || []).map((g: any) => ({
+      group_id: String(g.id || g.group_id),
+      group_name: g.title || g.group_name || "Unknown",
+      is_channel: g.is_channel || false,
+      is_group: g.is_group || false,
+      participant_count: g.participant_count || g.participants_count || 0,
+    }))
+
+    console.log("[v0] Mapped groups:", mappedGroups.length)
+
+    return NextResponse.json({ groups: mappedGroups })
   } catch (error) {
     console.error("[v0] Error fetching groups:", error)
     return NextResponse.json(
