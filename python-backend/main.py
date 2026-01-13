@@ -7,6 +7,7 @@ from telethon import TelegramClient, errors
 from telethon.sessions import StringSession
 from typing import Optional, List
 import shutil
+from telethon.tl.types import Chat, Channel
 
 app = FastAPI()
 
@@ -61,6 +62,12 @@ class StartBot(BaseModel):
 
 class StopBot(BaseModel):
     bot_id: str
+
+class FetchGroups(BaseModel):
+    bot_id: str
+    api_id: int
+    api_hash: str
+    session_string: str
 
 @app.post("/send-code")
 async def send_code(data: SendCode):
@@ -347,6 +354,55 @@ async def health():
 @app.get("/")
 async def root():
     return {"message": "Telegram Bot Backend", "version": "2.0"}
+
+@app.post("/api/telegram/groups/fetch")
+async def fetch_groups(data: FetchGroups):
+    """Fetch all groups and channels the user is member of"""
+    try:
+        client = TelegramClient(
+            StringSession(data.session_string),
+            data.api_id,
+            data.api_hash
+        )
+        
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            raise HTTPException(400, "Session expired")
+        
+        groups = []
+        
+        # Get all dialogs (chats, groups, channels)
+        async for dialog in client.iter_dialogs():
+            entity = dialog.entity
+            
+            # Only include groups and channels (not private chats)
+            if isinstance(entity, (Chat, Channel)):
+                # Skip if it's a private channel we can't post to
+                if isinstance(entity, Channel) and entity.broadcast and not entity.creator:
+                    # It's a broadcast channel and we're not the creator - skip
+                    continue
+                    
+                groups.append({
+                    "id": entity.id,
+                    "title": dialog.title or entity.title or "Unknown",
+                    "type": "channel" if isinstance(entity, Channel) else "group",
+                    "members_count": getattr(entity, 'participants_count', None),
+                    "username": getattr(entity, 'username', None),
+                    "is_megagroup": getattr(entity, 'megagroup', False) if isinstance(entity, Channel) else False
+                })
+        
+        await client.disconnect()
+        
+        return {
+            "status": "SUCCESS",
+            "groups": groups,
+            "total": len(groups)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Error fetching groups: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
