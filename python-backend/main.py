@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from telethon import TelegramClient, errors
 from telethon.sessions import StringSession
+from typing import Optional, List
 import shutil
 
 app = FastAPI()
@@ -20,7 +21,11 @@ app.add_middleware(
 SESSIONS_DIR = "sessions"
 os.makedirs(SESSIONS_DIR, exist_ok=True)
 
+# Pending auth clients
 clients = {}
+
+# Running bots
+running_bots = {}
 
 class SendCode(BaseModel):
     api_id: int
@@ -39,6 +44,23 @@ class ImportSession(BaseModel):
     api_id: int
     api_hash: str
     phone: str
+
+# Bot management models
+class StartBot(BaseModel):
+    bot_id: str
+    api_id: int
+    api_hash: str
+    phone_number: str
+    session_string: str
+    message_template: str = "Hello!"
+    min_delay: int = 20
+    max_delay: int = 40
+    group_ids: List[int] = []
+    auto_reply_enabled: bool = True
+    auto_reply_message: str = "To jest tylko bot."
+
+class StopBot(BaseModel):
+    bot_id: str
 
 @app.post("/send-code")
 async def send_code(data: SendCode):
@@ -91,10 +113,7 @@ async def verify_code(data: VerifyCode):
     try:
         await client.sign_in(data.phone, data.code)
         
-        # Get session string for storage
         session_string = StringSession.save(client.session)
-        
-        # Keep client connected but remove from pending
         del clients[data.phone]
         
         return {
@@ -145,14 +164,12 @@ async def import_session(
 ):
     """Import existing .session file"""
     try:
-        # Save uploaded session file
         session_path = f"{SESSIONS_DIR}/session_{phone}.session"
         
         with open(session_path, "wb") as f:
             content = await session_file.read()
             f.write(content)
         
-        # Verify session works
         client = TelegramClient(
             f"{SESSIONS_DIR}/session_{phone}",
             api_id,
@@ -165,9 +182,7 @@ async def import_session(
             os.remove(session_path)
             raise HTTPException(400, "Sesja wygasła lub jest nieprawidłowa")
         
-        # Get string session for database storage
         session_string = StringSession.save(client.session)
-        
         await client.disconnect()
         
         return {
@@ -211,9 +226,123 @@ async def validate_session(api_id: int = Form(...), api_hash: str = Form(...), s
     except Exception as e:
         raise HTTPException(400, f"Nieprawidłowa sesja: {str(e)}")
 
+# Start a bot with messaging
+@app.post("/api/telegram/bot/start")
+async def start_bot(data: StartBot):
+    """Start a bot with messaging"""
+    try:
+        # Check if bot already running
+        if data.bot_id in running_bots:
+            return {"status": "ALREADY_RUNNING", "bot_id": data.bot_id}
+        
+        # Create client from session string
+        client = TelegramClient(
+            StringSession(data.session_string),
+            data.api_id,
+            data.api_hash,
+            device_model="Chrome",
+            system_version="Windows 10",
+            app_version="4.0"
+        )
+        
+        await client.connect()
+        
+        if not await client.is_user_authorized():
+            raise HTTPException(400, "Session expired, please re-authenticate")
+        
+        # Store bot info
+        running_bots[data.bot_id] = {
+            "client": client,
+            "config": data,
+            "running": True
+        }
+        
+        # Start message loop in background
+        asyncio.create_task(bot_message_loop(data.bot_id))
+        
+        return {
+            "status": "STARTED",
+            "bot_id": data.bot_id,
+            "groups": len(data.group_ids)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+async def bot_message_loop(bot_id: str):
+    """Background task to send messages"""
+    import random
+    
+    while bot_id in running_bots and running_bots[bot_id]["running"]:
+        try:
+            bot_data = running_bots[bot_id]
+            client = bot_data["client"]
+            config = bot_data["config"]
+            
+            if config.group_ids:
+                for group_id in config.group_ids:
+                    try:
+                        await client.send_message(group_id, config.message_template)
+                        print(f"[BOT {bot_id}] Sent message to {group_id}")
+                    except Exception as e:
+                        print(f"[BOT {bot_id}] Error sending to {group_id}: {e}")
+                    
+                    # Random delay between messages
+                    delay = random.randint(config.min_delay, config.max_delay)
+                    await asyncio.sleep(delay)
+            else:
+                # No groups, just wait
+                await asyncio.sleep(60)
+                
+        except Exception as e:
+            print(f"[BOT {bot_id}] Loop error: {e}")
+            await asyncio.sleep(30)
+    
+    print(f"[BOT {bot_id}] Message loop stopped")
+
+# Stop a running bot
+@app.post("/api/telegram/bot/stop")
+async def stop_bot(data: StopBot):
+    """Stop a running bot"""
+    if data.bot_id not in running_bots:
+        return {"status": "NOT_RUNNING", "bot_id": data.bot_id}
+    
+    try:
+        bot_data = running_bots[data.bot_id]
+        bot_data["running"] = False
+        
+        client = bot_data["client"]
+        await client.disconnect()
+        
+        del running_bots[data.bot_id]
+        
+        return {"status": "STOPPED", "bot_id": data.bot_id}
+    except Exception as e:
+        # Force remove from running bots
+        if data.bot_id in running_bots:
+            del running_bots[data.bot_id]
+        raise HTTPException(500, str(e))
+
+# Get bot status
+@app.get("/api/telegram/bot/status/{bot_id}")
+async def bot_status(bot_id: str):
+    """Get bot status"""
+    if bot_id in running_bots:
+        return {
+            "status": "running",
+            "bot_id": bot_id,
+            "groups": len(running_bots[bot_id]["config"].group_ids)
+        }
+    return {"status": "stopped", "bot_id": bot_id}
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "sessions_dir": SESSIONS_DIR}
+    return {
+        "status": "ok",
+        "sessions_dir": SESSIONS_DIR,
+        "running_bots": len(running_bots)
+    }
 
 @app.get("/")
 async def root():

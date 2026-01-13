@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import type { TelegramClient } from "telegram"
 
-const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || "http://localhost:8000"
-
-// Store active bot instances
-const activeBots = new Map<string, { client: TelegramClient; intervalId: NodeJS.Timeout }>()
+const PYTHON_BACKEND_URL = (process.env.PYTHON_BACKEND_URL || "http://localhost:8000").replace(/\/$/, "")
 
 export async function POST(request: Request) {
   try {
@@ -52,6 +48,7 @@ export async function POST(request: Request) {
     const groupIds = groups?.map((g) => Number.parseInt(g.group_id)) || []
 
     console.log(`[v0] Starting bot ${bot.name} with ${groupIds.length} groups via Python backend`)
+    console.log(`[v0] Backend URL: ${PYTHON_BACKEND_URL}`)
 
     const response = await fetch(`${PYTHON_BACKEND_URL}/api/telegram/bot/start`, {
       method: "POST",
@@ -76,6 +73,8 @@ export async function POST(request: Request) {
     const data = await response.json()
 
     if (!response.ok) {
+      console.error(`[v0] Backend error: ${response.status}`, data)
+
       if (response.status === 400 && data.detail?.includes("Session expired")) {
         await supabase
           .from("bots")
@@ -105,19 +104,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, groups: groupIds.length })
   } catch (error) {
     console.error("[v0] Bot start error:", error)
-
-    const { botId } = await request.json()
-    if (botId) {
-      const supabase = await createClient()
-      await supabase
-        .from("bots")
-        .update({
-          status: "error",
-          auth_error: error instanceof Error ? error.message : "Failed to start bot",
-        })
-        .eq("id", botId)
-    }
-
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to start bot" }, { status: 500 })
   }
 }
