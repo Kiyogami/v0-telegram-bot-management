@@ -444,6 +444,9 @@ async def bot_message_loop(bot_id: str):
     """Background task to send messages"""
     import random
     
+    print(f"[BOT {bot_id}] Message loop started")
+    print(f"[SUPABASE CONFIG] URL: {SUPABASE_URL is not None}, KEY: {SUPABASE_KEY is not None}")
+    
     while bot_id in running_bots and running_bots[bot_id]["running"]:
         try:
             bot_data = running_bots[bot_id]
@@ -454,25 +457,27 @@ async def bot_message_loop(bot_id: str):
                 for group_id in config.group_ids:
                     try:
                         await client.send_message(group_id, config.message_template)
-                        print(f"[BOT {bot_id}] Sent message to {group_id}")
+                        print(f"[BOT {bot_id}] ✅ Sent message to {group_id}")
                         
                         if bot_id in bot_stats:
                             bot_stats[bot_id]["messages_sent"] += 1
                         
                         # Log message to Supabase
+                        print(f"[BOT {bot_id}] Logging to Supabase message_logs...")
                         await log_to_supabase("message_logs", {
                             "bot_id": bot_id,
-                            "group_id": group_id,
+                            "group_id": str(group_id),
                             "message_text": config.message_template[:200],
                             "status": "sent",
                             "sent_at": datetime.utcnow().isoformat()
                         })
+                        print(f"[BOT {bot_id}] ✅ Logged to Supabase")
                         
                         # Update group stats
                         await update_group_stats(bot_id, group_id)
                         
                     except Exception as e:
-                        print(f"[BOT {bot_id}] Error sending to {group_id}: {e}")
+                        print(f"[BOT {bot_id}] ❌ Error sending to {group_id}: {e}")
                         
                         if bot_id in bot_stats:
                             bot_stats[bot_id]["messages_failed"] += 1
@@ -480,14 +485,15 @@ async def bot_message_loop(bot_id: str):
                         # Log error
                         await log_to_supabase("message_logs", {
                             "bot_id": bot_id,
-                            "group_id": group_id,
+                            "group_id": str(group_id),
                             "message_text": config.message_template[:200],
-                            "status": "failed",
+                            "status": "error",
                             "error_message": str(e)[:500]
                         })
                     
                     # Random delay between messages
                     delay = random.randint(config.min_delay, config.max_delay)
+                    print(f"[BOT {bot_id}] Waiting {delay}s before next message...")
                     await asyncio.sleep(delay)
             else:
                 # No groups, just wait
